@@ -8,6 +8,39 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <!-- ============================================================
+     FULL-ACCESS ADMIN WELCOME BANNER
+     ============================================================ -->
+<style>
+  #page-view .admin-dashboard-hero{display:flex;align-items:center;justify-content:space-between;gap:1.25rem;margin:0 0 1.1rem;padding:1.35rem 1.55rem;border:1px solid rgba(167,243,208,.28);border-radius:18px;background:radial-gradient(circle at 88% 10%,rgba(52,211,153,.22),transparent 28%),linear-gradient(118deg,#052e2b 0%,#065f46 56%,#0d9470 100%);color:#fff;box-shadow:0 14px 30px rgba(6,78,59,.15);overflow:hidden}
+  #page-view .admin-dashboard-identity{display:flex;align-items:center;gap:1rem;min-width:0}
+  #page-view .admin-dashboard-avatar{display:grid;place-items:center;flex:0 0 58px;width:58px;height:58px;overflow:hidden;border:2px solid rgba(255,255,255,.82);border-radius:50%;background:#f59e0b;color:#422006;font-size:1.25rem;font-weight:900;box-shadow:0 5px 16px rgba(0,0,0,.18)}
+  #page-view .admin-dashboard-avatar img{width:100%;height:100%;object-fit:cover}
+  #page-view .admin-dashboard-copy{min-width:0}
+  #page-view .admin-dashboard-eyebrow{display:block;margin-bottom:.25rem;color:#a7f3d0;font-size:.63rem;font-weight:850;letter-spacing:.15em}
+  #page-view .admin-dashboard-copy h2{margin:0;color:#fff;font-size:clamp(1.2rem,2.3vw,1.7rem);font-weight:850;letter-spacing:-.035em;line-height:1.25}
+  #page-view .admin-dashboard-copy p{margin:.35rem 0 0;color:#d1fae5;font-size:.78rem}
+  #page-view .admin-dashboard-meta{display:flex;flex-direction:column;align-items:flex-end;gap:.35rem;flex-shrink:0;padding:.7rem .9rem;border:1px solid rgba(209,250,229,.28);border-radius:12px;background:rgba(3,54,43,.38);text-align:right}
+  #page-view .admin-dashboard-meta strong{color:#fff;font-size:.75rem;font-weight:850}
+  #page-view .admin-dashboard-meta span{color:#d1fae5;font-size:.68rem}
+  @media(max-width:640px){#page-view .admin-dashboard-hero{align-items:flex-start;flex-direction:column;padding:1.05rem;border-radius:14px}#page-view .admin-dashboard-meta{align-items:flex-start;text-align:left;width:100%;box-sizing:border-box}}
+  @media print{#page-view .admin-dashboard-hero{background:#fff!important;color:#111!important;border:1px solid #bbb;box-shadow:none}#page-view .admin-dashboard-copy h2,#page-view .admin-dashboard-copy p,#page-view .admin-dashboard-eyebrow,#page-view .admin-dashboard-meta strong,#page-view .admin-dashboard-meta span{color:#111!important}}
+</style>
+<section class="admin-dashboard-hero" aria-label="Administrator welcome">
+  <div class="admin-dashboard-identity">
+    <div class="admin-dashboard-avatar" id="admin-dashboard-avatar" aria-hidden="true">A</div>
+    <div class="admin-dashboard-copy">
+      <span class="admin-dashboard-eyebrow">FULL-ACCESS ADMINISTRATION</span>
+      <h2>Welcome back, <span id="admin-dashboard-name">Administrator</span></h2>
+      <p>Institution-wide overview, academic operations and system controls</p>
+    </div>
+  </div>
+  <div class="admin-dashboard-meta">
+    <strong id="admin-dashboard-role">Administrator</strong>
+    <span id="admin-dashboard-date">FPU Admin Control Centre</span>
+  </div>
+</section>
+
+<!-- ============================================================
      PAGE HEAD
      ============================================================ -->
 <div id="dash-data-alert" role="status" aria-live="polite" style="display:none;margin:0 0 14px;padding:10px 14px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#92400e;font-size:13px;"></div>
@@ -1464,6 +1497,49 @@
   }
 
   // ============================================================
+  // ADMIN WELCOME IDENTITY
+  // ============================================================
+  function renderDashboardIdentity() {
+    const nameEl = document.getElementById('admin-dashboard-name');
+    const avatarEl = document.getElementById('admin-dashboard-avatar');
+    const roleEl = document.getElementById('admin-dashboard-role');
+    const dateEl = document.getElementById('admin-dashboard-date');
+    let user = null;
+    try {
+      const raw = localStorage.getItem('fpu_admin_user') || localStorage.getItem('portal_user');
+      user = raw ? JSON.parse(raw) : null;
+    } catch { user = null; }
+
+    if (user) {
+      const first = String(user.firstName || '').trim();
+      const last = String(user.lastName || '').trim();
+      const fullName = [first, last].filter(Boolean).join(' ') || user.email || 'Administrator';
+      const initials = ((first[0] || user.email?.[0] || 'A') + (last[0] || '')).toUpperCase();
+      if (nameEl) nameEl.textContent = fullName;
+      if (roleEl) roleEl.textContent = String(user.role || 'admin').replace(/[_-]/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+
+      if (avatarEl) {
+        const photoUrl = String(user.photoUrl || '').trim();
+        let safeUrl = '';
+        try {
+          const parsed = new URL(photoUrl, window.location.origin);
+          if (['http:', 'https:'].includes(parsed.protocol)) safeUrl = parsed.href;
+        } catch { safeUrl = ''; }
+        if (safeUrl) {
+          const img = document.createElement('img');
+          img.src = safeUrl;
+          img.alt = '';
+          img.onerror = () => { avatarEl.textContent = initials || 'A'; };
+          avatarEl.replaceChildren(img);
+        } else {
+          avatarEl.textContent = initials || 'A';
+        }
+      }
+    }
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  // ============================================================
   // MAIN LOAD
   // ============================================================
   async function loadAll() {
@@ -1514,6 +1590,7 @@
   // Re-init when the dashboard partial loads
   window.initDashboard = function () {
     // Small delay to ensure DOM is fully painted
+    renderDashboardIdentity();
     setTimeout(loadAll, 50);
   };
 

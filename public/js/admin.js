@@ -15066,7 +15066,7 @@ async function loadTimetableSheet() {
       switchBtn.onclick = () => {
         const nextSemester = semester === 'first' ? 'second' : 'first';
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
-          departmentId, name: deptName, semester: nextSemester, sessionId, level: selectedLevel
+          departmentId, name: deptName, semester: nextSemester, sessionId, level: selectedLevel, review: reviewMode ? '1' : ''
         });
       };
     }
@@ -15139,7 +15139,7 @@ async function loadTimetableSheet() {
       root.innerHTML = reviewMode
         ? `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px 0;padding:24px;">No HOD-submitted timetable slots are awaiting approval for ${escapeHtml(deptName)} in this session, semester and level.</div>`
         : `<div class="tt-level-tabs">${tabsHtml}</div>${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}`;
-      wireLevelTabs(root, departmentId, deptName, semester, sessionId);
+      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
       return;
     }
 
@@ -15288,7 +15288,7 @@ async function loadTimetableSheet() {
   }
 }
 
-function wireLevelTabs(root, departmentId, deptName, semester, sessionId) {
+function wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode = false) {
   root.querySelectorAll('.tt-level-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
@@ -15297,6 +15297,7 @@ function wireLevelTabs(root, departmentId, deptName, semester, sessionId) {
         semester,
         sessionId,
         level: tab.dataset.level,
+        review: reviewMode ? '1' : '',
       });
     });
   });

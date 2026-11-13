@@ -317,3 +317,60 @@
   font-weight:500!important;
   line-height:1.55!important;
 }
+
+
+/* ==========================================================
+   Lecturer pages — consistent dark-green page headers and
+   accessible text contrast across Students, Timetable,
+   My Courses, Attendance, Exams, Materials, Assignments,
+   Requests and Reports. Sidebar/navigation remain untouched.
+   ========================================================== */
+.lecturer-design-scope :where(.greeting,.page-head,.header-row){
+  background:#065f46!important;
+  background-image:none!important;
+  color:#fff!important;
+  border:1px solid #064e3b!important;
+  border-radius:16px!important;
+  box-shadow:0 8px 22px rgba(6,95,70,.14)!important;
+}
+.lecturer-design-scope :where(.greeting,.page-head,.header-row) :where(h1,h2,h3,h4,p,small,span,.sub,.meta,.muted,.hint,.helper-text){
+  color:#fff!important;
+}
+.lecturer-design-scope :where(.greeting,.page-head,.header-row) :where(h1,h2){
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:1.45rem!important;
+  font-weight:850!important;
+  letter-spacing:-.025em!important;
+  line-height:1.28!important;
+}
+.lecturer-design-scope :where(.greeting,.page-head,.header-row) :where(p,.sub,.meta){
+  font-size:.86rem!important;
+  font-weight:500!important;
+  line-height:1.55!important;
+}
+.lecturer-design-scope :where(.greeting,.page-head,.header-row) :where(button,.btn){
+  background:#fff!important;
+  color:#065f46!important;
+  border:1px solid #d1fae5!important;
+}
+.lecturer-design-scope :where(button,.btn,[role="button"]){
+  text-shadow:none!important;
+}
+.lecturer-design-scope :where(button[style*="background:#065f46"],button[style*="background: #065f46"],button[style*="background:#047857"],button[style*="background: #047857"],button[style*="background:#0f766e"],button[style*="background: #0f766e"]){
+  color:#fff!important;
+}
+.lecturer-design-scope :where(.panel,.card,.panel-body,.card-body,.filter-bar,.toolbar,.table-toolbar,.table-wrap,.table-responsive){
+  color:#183047!important;
+}
+.lecturer-design-scope :where(.panel,.card,.panel-body,.card-body,.filter-bar,.toolbar,.table-toolbar,.table-wrap,.table-responsive) :where(h1,h2,h3,h4,p,label,li,td,th,span,small){
+  color:inherit;
+}
+.lecturer-design-scope :where(.panel,.card,.panel-body,.card-body) :where(h1,h2,h3,h4){
+  color:#173d32!important;
+}
+.lecturer-design-scope :where(.muted,.text-muted,.sub,.hint,.helper-text,small){
+  color:#526b60!important;
+}
+.lecturer-design-scope :where(.badge,.chip,.status,.lc-status-chip,[class*="status-chip"]){
+  font-weight:750!important;
+}

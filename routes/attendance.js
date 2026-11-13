@@ -479,7 +479,7 @@ router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, ne
       const late = rows.filter(row => row.status === 'late').length;
       const absent = rows.filter(row => row.status === 'absent').length;
       const excused = rows.filter(row => row.status === 'excused').length;
-      const today = date ? rows.find(row => String(row.date).slice(0, 10) === date) : null;
+      const today = date ? rows.find(row => (row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date).slice(0, 10)) === date) : null;
       return {
         ...student,
         totalClasses,

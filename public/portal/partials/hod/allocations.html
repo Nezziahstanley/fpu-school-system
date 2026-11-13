@@ -187,9 +187,9 @@
   function exportCsv() {
     if (!FILTERED.length) { core.showToast && core.showToast('No allocation records match the current filters.','warning'); return; }
     const columns = ['Course Code','Course Title','Level','Units','Semester','Lecturer','Status','Flag Reason'];
-    const cell = value => { let v=String(value==null?'':value); if (/^\\s*[=+@-]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };
+    const cell = value => { let v=String(value==null?'':value); if (/^\s*[=+@-]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };
     const rows = [columns,...FILTERED.map(course=>[course.code||course.courseCode,course.title||course.courseTitle,course.level,course.unit,course.semesterName,course.lecturerName||'Unassigned',allocationState(course),course.flagReason])];
-    const csv = '\\uFEFF' + rows.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const csv = '\uFEFF' + rows.map(row=>row.map(cell).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='hod-course-allocations.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }

@@ -89,6 +89,44 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       .groupBy(schema.departments.id, schema.departments.name, schema.departments.code, schema.schools.name)
       .orderBy(schema.departments.name);
 
+    // Count enrolled students from approved course registrations, not attendance rows.
+    // This keeps the student totals meaningful before lecturers begin marking attendance.
+    const registrationConds = [
+      eq(schema.courseRegistrations.status, 'approved')
+    ];
+    if (selectedSessionId) registrationConds.push(eq(schema.courseRegistrations.sessionId, selectedSessionId));
+    if (semester) registrationConds.push(eq(schema.courseRegistrations.semester, semester));
+
+    const registeredByDepartment = await db
+      .select({
+        departmentId: schema.courses.departmentId,
+        students: sql`COUNT(DISTINCT ${schema.courseRegistrations.studentId})`
+      })
+      .from(schema.courseRegistrations)
+      .innerJoin(schema.courses, eq(schema.courseRegistrations.courseId, schema.courses.id))
+      .innerJoin(schema.departments, eq(schema.courses.departmentId, schema.departments.id))
+      .where(and(...registrationConds, ...(departmentWhere ? [departmentWhere] : [])))
+      .groupBy(schema.courses.departmentId);
+
+    const registeredDepartmentCounts = new Map(
+      registeredByDepartment.map(row => [Number(row.departmentId), Number(row.students) || 0])
+    );
+
+    const registeredBySchool = await db
+      .select({
+        schoolId: schema.departments.schoolId,
+        students: sql`COUNT(DISTINCT ${schema.courseRegistrations.studentId})`
+      })
+      .from(schema.courseRegistrations)
+      .innerJoin(schema.courses, eq(schema.courseRegistrations.courseId, schema.courses.id))
+      .innerJoin(schema.departments, eq(schema.courses.departmentId, schema.departments.id))
+      .where(and(...registrationConds, ...(departmentWhere ? [departmentWhere] : [])))
+      .groupBy(schema.departments.schoolId);
+
+    const registeredSchoolCounts = new Map(
+      registeredBySchool.map(row => [Number(row.schoolId), Number(row.students) || 0])
+    );
+
     // School totals are calculated independently so students are distinct across
     // the entire school (rather than summing department-level student counts).
     const schoolStats = await db
@@ -118,7 +156,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
         ...row,
         departments: Number(row.departments) || 0,
         courses: Number(row.courses) || 0,
-        students: Number(row.students) || 0,
+        students: registeredSchoolCounts.get(Number(row.id)) || 0,
         records,
         rate: records ? Math.round(((present + late) / records) * 100) : 0
       };
@@ -131,7 +169,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       return {
         ...row,
         courses: Number(row.courses) || 0,
-        students: Number(row.students) || 0,
+        students: registeredDepartmentCounts.get(Number(row.id)) || 0,
         records: recs,
         rate: recs > 0 ? Math.round(((p + l) / recs) * 100) : 0
       };

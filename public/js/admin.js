@@ -15046,14 +15046,14 @@ async function loadTimetableSheet() {
     }
 
     const addBtn = document.getElementById('tsheet-add');
-    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel }); }
+    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId: effectiveSessionId, level: selectedLevel }); }
 
     const switchBtn = document.getElementById('tsheet-switch-sem');
     if (switchBtn) {
       switchBtn.onclick = () => {
         const nextSemester = semester === 'first' ? 'second' : 'first';
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
-          departmentId, name: deptName, semester: nextSemester, sessionId, level: selectedLevel, review: reviewMode ? '1' : ''
+          departmentId, name: deptName, semester: nextSemester, sessionId: effectiveSessionId, level: selectedLevel, review: reviewMode ? '1' : ''
         });
       };
     }
@@ -15168,7 +15168,7 @@ async function loadTimetableSheet() {
           <div class="tt-review-stats"><span>${validSlots.length} submitted slots</span><span>${new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).size} active days</span><span>Awaiting Admin Approval</span></div>
         </div>
         <div class="tt-review-week">${reviewCards}</div>`;
-      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
+      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode);
       return;
     }
 
@@ -15330,7 +15330,7 @@ async function loadTimetableSheet() {
       </div>
     `;
 
-    wireLevelTabs(root, departmentId, deptName, semester, sessionId);
+    wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId);
 
   } catch (err) {
     console.error('Failed to load timetable sheet:', err);

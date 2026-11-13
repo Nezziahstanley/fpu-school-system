@@ -443,14 +443,22 @@ router.put('/announcements/:id', requireUser, async (req, res, next) => {
     if (b.expiresAt !== undefined) patch.expiresAt = b.expiresAt || null;
     if (b.audience !== undefined) {
       const allowed = ANNOUNCE_TARGETS[role] || ['all'];
-      if (!allowed.includes(b.audience)) {
+      const adminModeratingDepartmentNotice = role === 'admin'
+        && b.audience === 'department'
+        && existing.audience === 'department';
+      if (!allowed.includes(b.audience) && !adminModeratingDepartmentNotice) {
         return res.status(403).json({ success: false, error: `Your role cannot target "${b.audience}".` });
       }
-      if (b.audience === 'department' && (role !== 'hod' || !req.user.departmentId)) {
+      if (b.audience === 'department' && role !== 'hod' && !adminModeratingDepartmentNotice) {
         return res.status(403).json({ success: false, error: 'Only an HOD with an assigned department can target a department.' });
       }
+      if (b.audience === 'department' && role === 'hod' && !req.user.departmentId) {
+        return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
+      }
       patch.audience = b.audience;
-      patch.departmentId = b.audience === 'department' ? req.user.departmentId : null;
+      patch.departmentId = b.audience === 'department'
+        ? (role === 'hod' ? req.user.departmentId : existing.departmentId)
+        : null;
     }
 
     const row = await notifQueries.updateAnnouncement(existing.id, patch);

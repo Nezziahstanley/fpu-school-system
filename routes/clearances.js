@@ -14,6 +14,13 @@ const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'bursar', 'registrar', 'rector', 'librarian'];
 
+async function resolveClearanceSessionId(requestedSessionId) {
+  const result = requestedSessionId
+    ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [requestedSessionId])
+    : await db.query('SELECT id FROM academic_sessions ORDER BY is_current DESC, id DESC LIMIT 1');
+  return result.rows[0]?.id || null;
+}
+
 async function ensureElectronicSignature(req, res) {
   const result = await db.query('SELECT signature_url FROM users WHERE id = $1 LIMIT 1', [req.user?.id]);
   if (!result.rows[0]?.signature_url) {
@@ -30,11 +37,9 @@ async function ensureElectronicSignature(req, res) {
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, status } = req.query;
-    const sessionRes = sessionId
-      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [sessionId])
-      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
-    if (!sessionRes.rows.length) return res.status(400).json({ success: false, error: 'Selected or current academic session was not found.' });
-    const params = [sessionRes.rows[0].id];
+    const resolvedSessionId = await resolveClearanceSessionId(sessionId);
+    if (!resolvedSessionId) return res.status(400).json({ success: false, error: 'No academic session is available. Create an academic session before managing clearances.' });
+    const params = [resolvedSessionId];
     const where = ['session_id = $1'];
     if (status) { params.push(status); where.push('status = $' + params.length); }
     const query = 'SELECT * FROM clearances WHERE ' + where.join(' AND ') + ' ORDER BY created_at DESC';
@@ -50,13 +55,11 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 router.get('/stats', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId } = req.query;
-    const sessionRes = sessionId
-      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [sessionId])
-      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
-    if (!sessionRes.rows.length) return res.status(400).json({ success: false, error: 'Selected or current academic session was not found.' });
+    const resolvedSessionId = await resolveClearanceSessionId(sessionId);
+    if (!resolvedSessionId) return res.status(400).json({ success: false, error: 'No academic session is available.' });
     const result = await db.query(
       `SELECT status, COUNT(*)::int AS count FROM clearances WHERE session_id = $1 GROUP BY status`,
-      [sessionRes.rows[0].id]
+      [resolvedSessionId]
     );
     return res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -68,13 +71,11 @@ router.get('/stats', requireRole(STAFF), async (req, res, next) => {
 router.get('/student/:studentId', requireRole(STAFF), async (req, res, next) => {
   try {
     const requestedSessionId = req.query?.sessionId || null;
+    const resolvedSessionId = await resolveClearanceSessionId(requestedSessionId);
+    if (!resolvedSessionId) return res.status(400).json({ success: false, error: 'No academic session is available.' });
     const result = await db.query(
-      `SELECT * FROM clearances
-       WHERE student_id = $1
-         AND session_id = COALESCE($2::int, (SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1))
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [req.params.studentId, requestedSessionId]
+      `SELECT * FROM clearances WHERE student_id = $1 AND session_id = $2 ORDER BY created_at DESC LIMIT 1`,
+      [req.params.studentId, resolvedSessionId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'No clearance found.' });
@@ -94,13 +95,8 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
     }
 
     const requestedSessionId = req.body?.sessionId || null;
-    const sessionRes = requestedSessionId
-      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [requestedSessionId])
-      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
-    if (sessionRes.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Selected academic session was not found.' });
-    }
-    const sessionId = sessionRes.rows[0].id;
+    const sessionId = await resolveClearanceSessionId(requestedSessionId);
+    if (!sessionId) return res.status(400).json({ success: false, error: 'No academic session is available. Create an academic session before managing clearances.' });
 
     const normalizedStatus = String(status).toLowerCase();
     if (!['pending', 'cleared', 'rejected'].includes(normalizedStatus)) {

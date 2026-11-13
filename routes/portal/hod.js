@@ -207,7 +207,7 @@ router.get('/teaching-plan', only, async (req, res) => {
       });
     }
 
-    const result = await db.execute(sql\`
+    const result = await db.execute(sql`
       SELECT
         ca.id AS "allocationId",
         c.id AS "courseId",
@@ -240,12 +240,12 @@ router.get('/teaching-plan', only, async (req, res) => {
         AND t.course_id = ca.course_id
         AND t.session_id = ca.session_id
         AND t.semester = ca.semester
-      WHERE c.department_id = \${departmentId}
-        AND ca.session_id = \${sessionId}
+      WHERE c.department_id = ${departmentId}
+        AND ca.session_id = ${sessionId}
         AND ca.status <> 'cancelled'
       ORDER BY c.code, ca.semester, u.last_name, u.first_name, t.week_number
       LIMIT 5000
-    \`);
+    `);
     const rows = result.rows || [];
     const coursesMap = new Map();
     const lecturers = new Set();

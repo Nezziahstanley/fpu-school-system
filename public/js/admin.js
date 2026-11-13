@@ -14993,25 +14993,34 @@ async function loadTimetableSheet() {
   root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading timetable…</div>';
 
   try {
-    const [slotsRes, deptRes, schoolsRes, coursesRes, sessionsRes] = await Promise.all([
-      adminFetch(`/api/admin/timetable?departmentId=${departmentId}&sessionId=${sessionId}&semester=${semester}&limit=2000`),
-      adminFetch(`/api/admin/departments`),
+    const [deptRes, schoolsRes, coursesRes, sessionsRes] = await Promise.all([
+      adminFetch('/api/admin/departments'),
       adminFetch('/api/admin/schools'),
       adminFetch(`/api/admin/courses?departmentId=${departmentId}&limit=500`),
       adminFetch('/api/admin/sessions'),
     ]);
 
-    const allSlots = (await slotsRes.json()).data || [];
     const depts = (await deptRes.json()).data || [];
     const schools = (await schoolsRes.json()).data || [];
     const allCourses = (await coursesRes.json()).data || [];
     const allSessions = (await sessionsRes.json()).data || [];
+    // A department opened from the overview may have an empty session selector.
+    // Resolve that to the current session (or latest available session) before
+    // loading the timetable and before enabling bulk approval.
+    const resolvedSession = allSessions.find(item => item.isCurrent)
+      || [...allSessions].sort((a, b) => Number(b.id) - Number(a.id))[0]
+      || null;
+    const effectiveSessionId = sessionId || (resolvedSession ? String(resolvedSession.id) : '');
+    if (!effectiveSessionId) {
+      root.innerHTML = '<div class="alert alert-warning">No academic session is available. Create an academic session before managing this timetable.</div>';
+      return;
+    }
+    const slotsRes = await adminFetch(`/api/admin/timetable?departmentId=${departmentId}&sessionId=${encodeURIComponent(effectiveSessionId)}&semester=${semester}&limit=2000`);
+    const allSlots = (await slotsRes.json()).data || [];
 
     const dept = depts.find(d => Number(d.id) === Number(departmentId)) || { name: deptName };
     const school = schools.find(s => Number(s.id) === Number(dept.schoolId)) || {};
-    const currentSession = allSessions.find(s => String(s.id) === String(sessionId)) 
-      || allSessions.find(s => s.isCurrent) 
-      || { name: '2025/2026' };
+    const currentSession = allSessions.find(s => String(s.id) === String(effectiveSessionId)) || resolvedSession || { name: 'Academic session' };
 
     const courseById = new Map(allCourses.map(c => [Number(c.id), c]));
 
@@ -15060,7 +15069,7 @@ async function loadTimetableSheet() {
       if (pendingCount > 0) {
         approveBtn.style.display = 'inline-flex';
         approveBtn.textContent = `✅ Approve All (${pendingCount} pending)`;
-        approveBtn.onclick = () => approveDepartmentTimetable(departmentId, deptName);
+        approveBtn.onclick = () => approveDepartmentTimetable(departmentId, deptName, effectiveSessionId, semester);
       } else {
         approveBtn.style.display = 'none';
       }
@@ -15389,7 +15398,28 @@ function buildEmptyTimetableSheet(school, dept, semester, session, level) {
   `;
 }
 
-async function approveDepartmentTimetable(departmentId, deptName) {
+async function approveDepartmentTimetable(departmentId, deptName, selectedSessionId = '', selectedSemester = '') {
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryIndex = hash.indexOf('?');
+  const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+  let sessionId = selectedSessionId || params.get('sessionId') || document.getElementById('tt-session')?.value || '';
+  const semester = selectedSemester || params.get('semester') || document.getElementById('tt-semester')?.value || 'first';
+
+  // Last-resort fallback keeps approval working when the route was opened
+  // without an explicit session query parameter.
+  if (!sessionId) {
+    const sessionsRes = await adminFetch('/api/admin/sessions');
+    const sessionsJson = await sessionsRes.json().catch(() => ({}));
+    const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+    const current = sessions.find(item => item.isCurrent)
+      || [...sessions].sort((a, b) => Number(b.id) - Number(a.id))[0];
+    sessionId = current ? String(current.id) : '';
+  }
+  if (!sessionId) {
+    showToast('No academic session is available. Create or activate a session before approving this timetable.', 'warning');
+    return;
+  }
+
   const ok = await window.fpuConfirm(
     `Approve ALL pending timetable slots for ${deptName}?\n\nThey will become the official lecture schedule.`,
     { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve All' }
@@ -15397,13 +15427,6 @@ async function approveDepartmentTimetable(departmentId, deptName) {
   if (!ok) return;
 
   try {
-    const hash = window.location.hash.replace(/^#/, '');
-    const queryIndex = hash.indexOf('?');
-    const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
-    const sessionId = params.get('sessionId');
-    const semester = params.get('semester') || 'first';
-    if (!sessionId) throw new Error('Select an academic session before approving this department timetable.');
-
     const res = await adminFetch('/api/admin/timetable/approve', {
       method: 'POST',
       body: JSON.stringify({ departmentId: Number(departmentId), sessionId: Number(sessionId), semester }),

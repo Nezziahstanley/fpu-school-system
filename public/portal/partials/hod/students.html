@@ -20,7 +20,7 @@
     <div class="avatar">S</div>
     <div>
       <h1>Department Students</h1>
-      <div class="sub">All students in Computer Science</div>
+      <div class="sub" id="stu-dept-sub">All students in your department</div>
     </div>
   </div>
 </section>
@@ -28,12 +28,11 @@
 <!-- Filter bar -->
 <div class="filter-bar">
   <input type="search" id="stu-search" placeholder="Search matric no. or name…" />
-  <select id="stu-level">
-    <option value="">All Levels</option>
-    <option value="ND">ND</option>
-    <option value="HND">HND</option>
-  </select>
+  <select id="stu-level"><option value="">All Levels</option><option value="ND">ND</option><option value="HND">HND</option></select>
+  <select id="stu-programme"><option value="">All Programmes</option></select>
+  <select id="stu-status"><option value="">All Statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
   <button class="btn btn-outline btn-sm" id="stu-refresh">↻ Refresh</button>
+  <button class="btn btn-primary btn-sm" id="stu-export" type="button">↓ Export CSV</button>
 </div>
 
 <!-- Stat tiles -->
@@ -50,7 +49,10 @@
     <div class="meta"><span class="label">HND Students</span><span class="value" id="stu-hnd">—</span></div>
     <div class="ic">📗</div>
   </div>
+  <div class="stat green"><div class="meta"><span class="label">Active Students</span><span class="value" id="stu-active">—</span></div><div class="ic">✓</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Inactive Students</span><span class="value" id="stu-inactive">—</span></div><div class="ic">!</div></div>
 </div>
+<div id="stu-result-count" style="margin:-.35rem 0 1rem;color:#64748b;font-size:.78rem;font-weight:700" aria-live="polite">Showing all students</div>
 
 <!-- ND Section -->
 <section class="panel" style="margin-bottom: 20px;">
@@ -113,6 +115,7 @@
 
   let ALL = [];
   let FILTERED = [];
+  let loading = false;
 
   function cleanMatric(matric) {
     if (!matric) return '—';
@@ -162,6 +165,8 @@
     $('stu-total').textContent = ALL.length;
     $('stu-nd').textContent = ALL.filter(s => s.level === 'ND').length;
     $('stu-hnd').textContent = ALL.filter(s => s.level === 'HND').length;
+    $('stu-active').textContent = ALL.filter(s => Boolean(s.isActive)).length;
+    $('stu-inactive').textContent = ALL.filter(s => !s.isActive).length;
   }
 
   function applyFilter() {
@@ -169,34 +174,75 @@
     const lvl = $('stu-level').value;
 
     FILTERED = ALL.filter(s => {
-      const hay = `${s.firstName} ${s.lastName} ${cleanMatric(s.matricNumber)}`.toLowerCase();
+      const hay = [s.firstName,s.lastName,cleanMatric(s.matricNumber),s.programmeName,s.level,s.isActive?'active':'inactive'].join(' ').toLowerCase();
+      const programme = $('stu-programme').value;
+      const status = $('stu-status').value;
       if (q && !hay.includes(q)) return false;
       if (lvl && s.level !== lvl) return false;
+      if (programme && s.programmeName !== programme) return false;
+      if (status && (status === 'active') !== Boolean(s.isActive)) return false;
       return true;
     });
     render();
+    $('stu-result-count').textContent = 'Showing ' + FILTERED.length + ' of ' + ALL.length + ' students';
+  }
+
+  function updateProgrammeOptions() {
+    const select = $('stu-programme'), selected = select.value;
+    const names = [...new Set(ALL.map(s => s.programmeName).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    select.innerHTML = '<option value="">All Programmes</option>' + names.map(name => '<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
+    if (names.includes(selected)) select.value = selected;
+  }
+
+  function exportCsv() {
+    if (!FILTERED.length) { core.showToast && core.showToast('No students match the current filters.','warning'); return; }
+    const columns = ['Matric Number','First Name','Last Name','Level','Programme','Status'];
+    const cell = value => {
+      let v = String(value == null ? '' : value);
+      if (/^\s*[=+@-]/.test(v)) v = "'" + v;
+      return '"' + v.replace(/"/g,'""') + '"';
+    };
+    const rows = [columns, ...FILTERED.map(s => [cleanMatric(s.matricNumber),s.firstName,s.lastName,s.level,s.programmeName,s.isActive?'Active':'Inactive'])];
+    const csv = '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n');
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'}), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href=url; a.download='hod-department-students.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 
   async function load() {
+    if (loading) return;
+    loading = true;
+    $('stu-refresh').disabled = true;
+    $('stu-refresh').textContent = 'Loading…';
     $('stu-nd-tbody').innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     $('stu-hnd-tbody').innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     
     try {
       const res = await core.portalFetch('/api/hod/students');
-      ALL = res.data || [];
-      
+      ALL = Array.isArray(res.data) ? res.data : [];
       updateStats();
+      updateProgrammeOptions();
       applyFilter();
+      try {
+        const dash = await core.portalFetch('/api/hod/dashboard');
+        if (dash?.data?.departmentName) $('stu-dept-sub').textContent = 'Students in ' + dash.data.departmentName;
+      } catch (_) { /* student list remains usable if dashboard metadata is unavailable */ }
     } catch (err) {
       const errRow = `<tr><td colspan="5" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
       $('stu-nd-tbody').innerHTML = errRow;
       $('stu-hnd-tbody').innerHTML = errRow;
+    } finally {
+      loading = false;
+      $('stu-refresh').disabled = false;
+      $('stu-refresh').textContent = '↻ Refresh';
     }
   }
 
   $('stu-search')?.addEventListener('input', applyFilter);
   $('stu-level')?.addEventListener('change', applyFilter);
+  $('stu-programme')?.addEventListener('change', applyFilter);
+  $('stu-status')?.addEventListener('change', applyFilter);
   $('stu-refresh')?.addEventListener('click', load);
+  $('stu-export')?.addEventListener('click', exportCsv);
 
   load();
 })();

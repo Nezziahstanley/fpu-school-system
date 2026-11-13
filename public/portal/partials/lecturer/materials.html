@@ -21,16 +21,19 @@
     </div>
   </div>
 
-  <!-- STAT TILES -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#fef9c3;color:#854d0e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📂</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="mat-total">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total Materials</div>
-      </div>
-    </div>
+  <!-- LIBRARY SUMMARY -->
+  <div id="mat-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="mat-total" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">All Materials</div></div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="mat-pdf" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">PDF Documents</div></div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="mat-video" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Videos</div></div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="mat-links" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Web Links</div></div>
   </div>
+  <div style="display:grid;grid-template-columns:minmax(180px,1.5fr) repeat(2,minmax(150px,1fr));gap:.65rem;margin-bottom:1rem;">
+    <input id="mat-search" type="search" placeholder="Search title, course or description…" aria-label="Search materials" style="min-width:0;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;">
+    <select id="mat-filter-course" aria-label="Filter by course" style="min-width:0;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;"><option value="">All courses</option></select>
+    <select id="mat-filter-type" aria-label="Filter by type" style="min-width:0;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;"><option value="">All types</option><option value="note">Notes</option><option value="pdf">PDF documents</option><option value="video">Videos</option><option value="link">Web links</option></select>
+  </div>
+  <div id="mat-result-count" style="font-size:.75rem;color:#64748b;margin:-.35rem 0 .65rem;">Showing all materials</div>
 
   <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -119,6 +122,8 @@
 </div>
 
 <style>
+  @media (max-width:700px) { #mat-stats { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
+  @media (max-width:560px) { #mat-search, #mat-filter-course, #mat-filter-type { grid-column:1 / -1; } }
   @keyframes matSpin { to { transform: rotate(360deg); } }
   #mat-tbody tr { transition: background .1s; }
   #mat-tbody tr:hover { background: #f8fafc; }
@@ -144,16 +149,42 @@
       ALL_MATERIALS = res.data || [];
       
       $('mat-total').textContent = ALL_MATERIALS.length;
+      $('mat-pdf').textContent = ALL_MATERIALS.filter(r => String(r.materialType).toLowerCase() === 'pdf').length;
+      $('mat-video').textContent = ALL_MATERIALS.filter(r => String(r.materialType).toLowerCase() === 'video').length;
+      $('mat-links').textContent = ALL_MATERIALS.filter(r => String(r.materialType).toLowerCase() === 'link').length;
+      const courseSelect = $('mat-filter-course');
+      const selectedCourse = courseSelect.value;
+      const courses = [...new Map(ALL_MATERIALS.map(r => [String(r.courseId || r.courseCode), { id: r.courseId || r.courseCode, label: [r.courseCode, r.courseTitle].filter(Boolean).join(' — ') || r.courseCode || 'Course' }])).values()];
+      courseSelect.innerHTML = '<option value="">All courses</option>' + courses.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');
+      courseSelect.value = selectedCourse;
+      renderMaterials();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
 
+  function renderMaterials() {
+      const tbody = $('mat-tbody');
+      const query = $('mat-search').value.trim().toLowerCase();
+      const course = $('mat-filter-course').value;
+      const type = $('mat-filter-type').value;
+      const rows = ALL_MATERIALS.filter(r => {
+        const haystack = [r.title, r.description, r.courseCode, r.courseTitle].join(' ').toLowerCase();
+        return (!query || haystack.includes(query)) && (!course || String(r.courseId || r.courseCode) === course) && (!type || String(r.materialType || 'note').toLowerCase() === type);
+      });
+      $('mat-result-count').textContent = `Showing ${rows.length} of ${ALL_MATERIALS.length} materials`;
       if (!ALL_MATERIALS.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No materials uploaded yet.</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No materials uploaded yet. Use Upload Material to add your first resource.</td></tr>';
         return;
       }
-
-      tbody.innerHTML = ALL_MATERIALS.map(r => `
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#64748b;">No materials match these filters. Try changing your search.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(r => `
         <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}</td>
-          <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}${r.description ? `<div style="font-size:.72rem;font-weight:400;color:#64748b;margin-top:3px;">${esc(r.description)}</div>` : ''}</td>
+          <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span>${r.courseTitle ? `<div style="font-size:.7rem;color:#64748b;margin-top:2px;">${esc(r.courseTitle)}</div>` : ''}</td>
           <td style="padding:.65rem .75rem;text-align:center;"><span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;text-transform:uppercase;">${esc(r.materialType || 'note')}</span></td>
           <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.createdAt)}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
@@ -181,10 +212,6 @@
           }
         });
       });
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
-    }
   }
 
   async function openModal(existingItem = null) {
@@ -313,6 +340,9 @@
     }
   }
 
+  $('mat-search')?.addEventListener('input', renderMaterials);
+  $('mat-filter-course')?.addEventListener('change', renderMaterials);
+  $('mat-filter-type')?.addEventListener('change', renderMaterials);
   $('mat-upload')?.addEventListener('click', () => openModal(null));
   $('mat-refresh')?.addEventListener('click', load);
   $('mat-modal-close')?.addEventListener('click', closeModal);

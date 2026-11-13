@@ -49,7 +49,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
         name: schema.departments.name,
         code: schema.departments.code,
         schoolName: schema.schools.name,
-        courses: sql`COUNT(DISTINCT ${schema.attendance.courseId})`,
+        courses: sql`COUNT(DISTINCT ${schema.courses.id})`,
         students: sql`COUNT(DISTINCT ${schema.attendance.studentId})`,
         records: sql`COUNT(${schema.attendance.id})`,
         present: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'present' THEN 1 END)`,
@@ -79,6 +79,93 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
     return res.json({ success: true, data: formatted });
   } catch (err) {
     console.error('Attendance Departments Error:', err);
+    return next(err);
+  }
+});
+
+
+// ============================================================
+// GET /api/admin/attendance/department/:departmentId
+// Course-level attendance summary for a department.
+// Supports session, semester, level and search filters.
+// ============================================================
+router.get('/department/:departmentId', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const departmentId = Number(req.params.departmentId);
+    if (!Number.isInteger(departmentId) || departmentId <= 0) {
+      return res.status(400).json({ success: false, error: 'A valid department is required.' });
+    }
+
+    const { sessionId, semester, level, search } = req.query;
+    const conditions = [eq(schema.courses.departmentId, departmentId)];
+
+    if (level) conditions.push(eq(schema.courses.level, String(level)));
+    if (search) {
+      conditions.push(or(
+        ilike(schema.courses.code, `%${String(search).trim()}%`),
+        ilike(schema.courses.title, `%${String(search).trim()}%`)
+      ));
+    }
+
+    let selectedSessionId = sessionId ? Number(sessionId) : null;
+    if (sessionId && (!Number.isInteger(selectedSessionId) || selectedSessionId <= 0)) {
+      return res.status(400).json({ success: false, error: 'Invalid academic session.' });
+    }
+    if (!selectedSessionId) {
+      const [currentSession] = await db
+        .select({ id: schema.academicSessions.id })
+        .from(schema.academicSessions)
+        .where(eq(schema.academicSessions.isCurrent, true))
+        .limit(1);
+      selectedSessionId = currentSession ? Number(currentSession.id) : null;
+    }
+
+    const attendanceConditions = [];
+    if (selectedSessionId) attendanceConditions.push(eq(schema.attendance.sessionId, selectedSessionId));
+    if (semester) attendanceConditions.push(eq(schema.attendance.semester, String(semester)));
+
+    const rows = await db
+      .select({
+        id: schema.courses.id,
+        code: schema.courses.code,
+        title: schema.courses.title,
+        level: schema.courses.level,
+        records: sql`COUNT(${schema.attendance.id})`,
+        students: sql`COUNT(DISTINCT ${schema.attendance.studentId})`,
+        present: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'present' THEN 1 END)`,
+        late: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'late' THEN 1 END)`,
+        lastDate: sql`MAX(${schema.attendance.date})`
+      })
+      .from(schema.courses)
+      .leftJoin(
+        schema.attendance,
+        attendanceConditions.length
+          ? and(eq(schema.attendance.courseId, schema.courses.id), ...attendanceConditions)
+          : eq(schema.attendance.courseId, schema.courses.id)
+      )
+      .where(and(...conditions))
+      .groupBy(schema.courses.id, schema.courses.code, schema.courses.title, schema.courses.level)
+      .orderBy(schema.courses.code);
+
+    const data = rows.map((row) => {
+      const records = Number(row.records) || 0;
+      const students = Number(row.students) || 0;
+      const present = Number(row.present) || 0;
+      const late = Number(row.late) || 0;
+      return {
+        ...row,
+        id: Number(row.id),
+        records,
+        students,
+        present,
+        late,
+        rate: records ? Math.round(((present + late) / records) * 100) : 0
+      };
+    });
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('Attendance Department Courses Error:', err);
     return next(err);
   }
 });

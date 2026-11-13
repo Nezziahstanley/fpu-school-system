@@ -3148,11 +3148,11 @@ async function loadTimetableIndex() {
       }
       else if (b.approved > 0) { 
         badgeClass = 'badge-success'; 
-        badgeText = 'Fully Approved'; 
+        badgeText = 'Approved'; 
       }
 
       return `
-        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
+        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" data-approved-count="${b.approved}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
             <span class="ttd-school">${escapeHtml(school?.name || 'School not assigned')}</span>
@@ -3183,7 +3183,7 @@ async function loadTimetableIndex() {
           departmentId: Number(card.dataset.deptId),
           sessionId: effectiveSessionId,
           semester,
-          status: 'approved',
+          status: Number(card.dataset.approvedCount) > 0 ? 'approved' : 'all',
           name: card.dataset.deptName,
         });
       };
@@ -14372,6 +14372,7 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
 async function openAttendanceMarkModal(courseId, courseCode, courseTitle, deptId) {
   const sessionId = document.getElementById('abc-filter-session')?.value || '';
   const semester = document.getElementById('abc-filter-semester')?.value || '';
+  const sessionLabel = document.getElementById('abc-filter-session')?.selectedOptions?.[0]?.textContent || sessionId;
   if (!sessionId || !semester) {
     showToast('Select an academic session and semester before marking attendance.', 'warning');
     return;
@@ -14394,7 +14395,7 @@ async function openAttendanceMarkModal(courseId, courseCode, courseTitle, deptId
       </div>
       <div style="padding:14px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:end;gap:14px;flex-wrap:wrap;">
         <div class="form-group" style="margin:0;min-width:190px;"><label class="form-label" for="att-mark-date">Attendance Date</label><input class="form-control" type="date" id="att-mark-date" value="${localDate}" /></div>
-        <div style="font-size:12px;color:#64748b;padding-bottom:10px;">Session ID: ${escapeHtml(sessionId)} · ${escapeHtml(semester)} semester</div>
+        <div style="font-size:12px;color:#64748b;padding-bottom:10px;">${escapeHtml(sessionLabel)} · ${escapeHtml(semester)} semester</div>
         <div style="margin-left:auto;font-size:12px;color:#64748b;padding-bottom:10px;" id="att-mark-count">Loading registered students…</div>
       </div>
       <div id="att-mark-body" style="padding:18px 22px;overflow:auto;flex:1;min-height:180px;"><div class="loading" style="padding:30px;text-align:center;">Loading student register…</div></div>
@@ -15272,6 +15273,12 @@ async function loadTimetableSheet() {
 
     const courseById = new Map(allCourses.map(c => [Number(c.id), c]));
 
+    const getCourseLevelLabel = course => {
+      const rawLevel = String(course.level || 'ND').toUpperCase().trim().replace(/\s+/g, ' ');
+      const embedded = rawLevel.match(/^(ND|HND)\s*([12])$/);
+      return embedded ? `${embedded[1]} ${embedded[2]}` : `${rawLevel} ${Number(course.yearOfStudy) || 1}`;
+    };
+
     // Strict Semester Check (Using your exact DB format)
     const isCourseInSemester = (c) => {
       const cSem = String(c.semester_name || '').toLowerCase().trim();
@@ -15300,7 +15307,7 @@ async function loadTimetableSheet() {
     }
 
     const addBtn = document.getElementById('tsheet-add');
-    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId: effectiveSessionId, level: selectedLevel }); }
+    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, name: deptName, semester, sessionId: effectiveSessionId, level: selectedLevel, status: 'all' }); }
 
     const switchBtn = document.getElementById('tsheet-switch-sem');
     if (switchBtn) {
@@ -15341,9 +15348,7 @@ async function loadTimetableSheet() {
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
       
-      const lvl = String(c.level || 'ND').toUpperCase();
-      const yr = Number(c.yearOfStudy) || 1;
-      const isLevelMatch = `${lvl} ${yr}` === selectedLevel;
+      const isLevelMatch = getCourseLevelLabel(c) === selectedLevel;
       
       // The timetable API is already filtered by the selected semester. Do not
       // re-filter using course metadata, which may be blank or legacy-formatted.
@@ -15355,9 +15360,7 @@ async function loadTimetableSheet() {
       const s = row.slot || row;
       const c = courseById.get(Number(s.courseId));
       if (!c) return;
-      const lvl = String(c.level || 'ND').toUpperCase();
-      const yr = Number(c.yearOfStudy) || 1;
-      levelsPresent.add(`${lvl} ${yr}`);
+      levelsPresent.add(getCourseLevelLabel(c));
     });
 
     const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
@@ -15510,7 +15513,7 @@ async function loadTimetableSheet() {
         </div>
         <div style="overflow:auto;">
           <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
-            <thead style="background:#f1f5f9;"><tr>${['Day','Time submitted','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
+            <thead style="background:#f1f5f9;"><tr>${['Day','Time','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
             <tbody>${validSlots.map(row => {
               const slot = row.slot || row;
               const course = row.course || courseById.get(Number(slot.courseId)) || {};
@@ -15587,7 +15590,7 @@ async function loadTimetableSheet() {
       </div>
     `;
 
-    wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId);
+    wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode, statusFilter);
 
   } catch (err) {
     console.error('Failed to load timetable sheet:', err);

@@ -1,0 +1,149 @@
+<!-- Portal → HOD → Course Registration Monitoring -->
+<style id="hod-registration-style">
+#main-view .hrm-page{display:grid;gap:1rem;font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
+#main-view .hrm-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.2rem 1.5rem;border-radius:16px;background:linear-gradient(120deg,#064e3b,#087653 58%,#10a16e);box-shadow:0 8px 24px rgba(6,78,59,.14);color:#fff}
+#main-view .hrm-hero h2{margin:0;color:#fff;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800}
+#main-view .hrm-hero p{margin:.35rem 0 0;color:#d9f5e8;font-size:.9rem}
+#main-view .hrm-actions{display:flex;gap:.55rem;flex-wrap:wrap}
+#main-view .hrm-btn{border:0;border-radius:8px;padding:.62rem .9rem;background:#fff;color:#064e3b;font-weight:750;cursor:pointer}
+#main-view .hrm-btn.secondary{background:#064e3b;color:#fff;border:1px solid #a7f3d0}
+#main-view .hrm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem}
+#main-view .hrm-card,#main-view .hrm-panel{min-width:0;background:var(--card-bg,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:13px;padding:1rem}
+#main-view .hrm-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:var(--text-muted,#64748b)}
+#main-view .hrm-value{margin-top:.35rem;font-size:1.65rem;font-weight:850;color:var(--text-color,#0f172a)}
+#main-view .hrm-filter{display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(140px,1fr));gap:.65rem}
+#main-view .hrm-filter input,#main-view .hrm-filter select{width:100%;min-width:0;padding:.65rem .75rem;border:1px solid var(--border-color,#cbd5e1);border-radius:8px;background:var(--input-bg,#fff);color:var(--text-color,#0f172a);font:inherit}
+#main-view .hrm-panel h3{margin:0 0 .8rem;font-size:1rem;color:var(--text-color,#0f172a)}
+#main-view .hrm-scroll{overflow:auto}
+#main-view .hrm-table{width:100%;border-collapse:collapse;min-width:760px;font-size:.82rem}
+#main-view .hrm-table th,#main-view .hrm-table td{padding:.7rem .65rem;text-align:left;border-bottom:1px solid var(--border-color,#e5e7eb);vertical-align:middle}
+#main-view .hrm-table th{font-size:.67rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#64748b);white-space:nowrap}
+#main-view .hrm-muted{color:var(--text-muted,#64748b)}
+#main-view .hrm-pill{display:inline-flex;padding:.25rem .55rem;border-radius:999px;font-size:.68rem;font-weight:800;text-transform:capitalize}
+#main-view .hrm-pill.approved{background:#dcfce7;color:#166534}#main-view .hrm-pill.pending{background:#fef3c7;color:#92400e}#main-view .hrm-pill.rejected{background:#fee2e2;color:#991b1b}
+#main-view .hrm-count{font-size:.76rem;font-weight:750;color:var(--text-muted,#64748b)}
+@media(max-width:850px){#main-view .hrm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#main-view .hrm-filter{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#main-view .hrm-grid,#main-view .hrm-filter{grid-template-columns:1fr}#main-view .hrm-hero{padding:1rem}#main-view .hrm-actions{width:100%}#main-view .hrm-actions button{flex:1}}
+@media print{#main-view .hrm-actions,#main-view .hrm-filter{display:none!important}#main-view .hrm-panel,#main-view .hrm-card{break-inside:avoid}#main-view .hrm-table{min-width:0;font-size:9px}#main-view .hrm-table th,#main-view .hrm-table td{padding:4px}}
+</style>
+<section class="hrm-page" id="hod-registration-page">
+  <header class="hrm-hero">
+    <div><h2>Department Course Registration Monitoring</h2><p id="hrm-subtitle">Monitor student course registrations and approval status across your department</p></div>
+    <div class="hrm-actions">
+      <button class="hrm-btn secondary" id="hrm-refresh" type="button">↻ Refresh</button>
+      <button class="hrm-btn" id="hrm-export" type="button">↓ Export CSV</button>
+      <button class="hrm-btn" id="hrm-print" type="button">Print</button>
+    </div>
+  </header>
+  <section class="hrm-grid" aria-label="Course registration summary">
+    <article class="hrm-card"><div class="hrm-label">Total Registrations</div><div class="hrm-value" id="hrm-total">—</div></article>
+    <article class="hrm-card"><div class="hrm-label">Pending Approval</div><div class="hrm-value" id="hrm-pending">—</div></article>
+    <article class="hrm-card"><div class="hrm-label">Approved</div><div class="hrm-value" id="hrm-approved">—</div></article>
+    <article class="hrm-card"><div class="hrm-label">Rejected</div><div class="hrm-value" id="hrm-rejected">—</div></article>
+    <article class="hrm-card"><div class="hrm-label">Students Registered</div><div class="hrm-value" id="hrm-students">—</div></article>
+    <article class="hrm-card"><div class="hrm-label">Courses With Registrations</div><div class="hrm-value" id="hrm-courses">—</div></article>
+  </section>
+  <section class="hrm-panel">
+    <div class="hrm-filter">
+      <input id="hrm-search" type="search" placeholder="Search student, matric no. or course…" aria-label="Search registrations">
+      <select id="hrm-session" aria-label="Academic session"><option value="">Loading sessions…</option></select>
+      <select id="hrm-semester" aria-label="Semester"><option value="">All Semesters</option><option value="first">First Semester</option><option value="second">Second Semester</option></select>
+      <select id="hrm-status" aria-label="Registration status"><option value="">All Statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+    </div>
+    <div id="hrm-result-count" class="hrm-count" style="margin-top:.8rem" aria-live="polite">Loading course registrations…</div>
+  </section>
+  <section class="hrm-panel">
+    <h3>Course Registration Summary</h3>
+    <div class="hrm-scroll"><table class="hrm-table" style="min-width:650px">
+      <thead><tr><th>Course</th><th>Level</th><th>Semester</th><th>Students</th><th>Pending</th><th>Approved</th><th>Rejected</th></tr></thead>
+      <tbody id="hrm-courses-body"><tr><td colspan="7" class="hrm-muted">Loading course summaries…</td></tr></tbody>
+    </table></div>
+  </section>
+  <section class="hrm-panel">
+    <h3>Student Registration Records</h3>
+    <div class="hrm-scroll"><table class="hrm-table">
+      <thead><tr><th>Submitted</th><th>Student</th><th>Matric Number</th><th>Level</th><th>Course</th><th>Semester</th><th>Status</th><th>Decision Date</th><th>Rejection Reason</th></tr></thead>
+      <tbody id="hrm-records-body"><tr><td colspan="9" class="hrm-muted">Loading registrations…</td></tr></tbody>
+    </table></div>
+    <p id="hrm-limit-note" class="hrm-muted" style="display:none;margin:.75rem 0 0;font-size:.75rem">Showing the latest 5,000 registration records for this session. Narrow the filters or refresh.</p>
+  </section>
+</section>
+<script>
+(function(){
+  'use strict';
+  const core=window.FPU_PORTAL||{};
+  const $=id=>document.getElementById(id);
+  const esc=value=>String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  let RECORDS=[],COURSES=[],SESSIONS=[],SUMMARY={},SELECTED_SESSION='';
+  function dateLabel(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});}
+  function semesterLabel(v){return String(v||'').toLowerCase()==='first'?'First Semester':String(v||'').toLowerCase()==='second'?'Second Semester':(v||'—');}
+  function filtered(){
+    const q=String($('hrm-search').value||'').trim().toLowerCase(),sem=$('hrm-semester').value,status=$('hrm-status').value;
+    return RECORDS.filter(r=>{
+      const hay=[r.studentName,r.matricNumber,r.email,r.studentLevel,r.courseCode,r.courseTitle,r.semester,r.status,r.rejectionReason].join(' ').toLowerCase();
+      return (!q||hay.includes(q))&&(!sem||String(r.semester).toLowerCase()===sem)&&(!status||String(r.status).toLowerCase()===status);
+    });
+  }
+  function renderCourses(){
+    const sem=$('hrm-semester').value,rows=COURSES.filter(c=>!sem||String(c.semester).toLowerCase()===sem);
+    $('hrm-courses-body').innerHTML=rows.length?rows.map(c=>'<tr><td><strong>'+esc(c.courseCode)+'</strong><div class="hrm-muted">'+esc(c.courseTitle)+'</div></td><td>'+esc(c.level||'—')+'</td><td>'+esc(semesterLabel(c.semester))+'</td><td>'+Number(c.students||0)+'</td><td>'+Number(c.pending||0)+'</td><td>'+Number(c.approved||0)+'</td><td>'+Number(c.rejected||0)+'</td></tr>').join(''):'<tr><td colspan="7" class="hrm-muted">No course registrations found for this semester.</td></tr>';
+  }
+  function renderRecords(){
+    const rows=filtered();
+    $('hrm-result-count').textContent='Showing '+rows.length.toLocaleString()+' of '+RECORDS.length.toLocaleString()+' registration records';
+    $('hrm-records-body').innerHTML=rows.length?rows.map(r=>{
+      const status=String(r.status||'').toLowerCase();
+      return '<tr><td>'+esc(dateLabel(r.createdAt))+'</td><td><strong>'+esc(r.studentName)+'</strong><div class="hrm-muted">'+esc(r.email||'')+'</div></td><td>'+esc(r.matricNumber)+'</td><td>'+esc(r.studentLevel||'—')+'</td><td><strong>'+esc(r.courseCode)+'</strong><div class="hrm-muted">'+esc(r.courseTitle)+'</div></td><td>'+esc(semesterLabel(r.semester))+'</td><td><span class="hrm-pill '+(status==='approved'?'approved':status==='rejected'?'rejected':'pending')+'">'+esc(status||'unknown')+'</span></td><td>'+esc(dateLabel(r.approvedAt))+'</td><td>'+esc(r.rejectionReason||'—')+'</td></tr>';
+    }).join(''):'<tr><td colspan="9" class="hrm-muted">No registrations match your filters.</td></tr>';
+  }
+  function stats(){
+    $('hrm-total').textContent=Number(SUMMARY.total||0).toLocaleString();
+    $('hrm-pending').textContent=Number(SUMMARY.pending||0).toLocaleString();
+    $('hrm-approved').textContent=Number(SUMMARY.approved||0).toLocaleString();
+    $('hrm-rejected').textContent=Number(SUMMARY.rejected||0).toLocaleString();
+    $('hrm-students').textContent=Number(SUMMARY.students||0).toLocaleString();
+    $('hrm-courses').textContent=Number(SUMMARY.courses||0).toLocaleString();
+  }
+  async function load(){
+    $('hrm-records-body').innerHTML='<tr><td colspan="9" class="hrm-muted">Loading registrations…</td></tr>';
+    $('hrm-courses-body').innerHTML='<tr><td colspan="7" class="hrm-muted">Loading course summaries…</td></tr>';
+    try{
+      const query=SELECTED_SESSION?'?sessionId='+encodeURIComponent(SELECTED_SESSION):'';
+      const response=await core.portalFetch('/api/hod/registrations'+query);
+      if(!response||response.success===false)throw new Error(response?.error||'Unable to load registrations.');
+      RECORDS=Array.isArray(response.data)?response.data:[];
+      COURSES=Array.isArray(response.courses)?response.courses:[];
+      SESSIONS=Array.isArray(response.sessions)?response.sessions:[];
+      SUMMARY=response.summary||{};
+      SELECTED_SESSION=String(response.selectedSessionId||'');
+      const select=$('hrm-session'),previous=select.value;
+      select.innerHTML=SESSIONS.length?SESSIONS.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+(s.isCurrent?' (Current)':'')+'</option>').join(''):'<option value="">No academic sessions</option>';
+      if(SELECTED_SESSION)select.value=SELECTED_SESSION;else if(previous)select.value=previous;
+      stats();renderCourses();renderRecords();
+      $('hrm-subtitle').textContent='Course registration monitoring · '+(SESSIONS.find(s=>String(s.id)===SELECTED_SESSION)?.name||'No active academic session');
+      $('hrm-limit-note').style.display=response.truncated?'block':'none';
+    }catch(error){
+      RECORDS=[];COURSES=[];SUMMARY={};stats();
+      $('hrm-records-body').innerHTML='<tr><td colspan="9" class="hrm-muted">'+esc(error.message)+'</td></tr>';
+      $('hrm-courses-body').innerHTML='<tr><td colspan="7" class="hrm-muted">Unable to load course summaries.</td></tr>';
+      $('hrm-result-count').textContent='Registrations could not be loaded.';
+      core.showToast&&core.showToast(error.message,'error');
+    }
+  }
+  function csvCell(v){let s=String(v==null?'':v);if(/^\s*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
+  function exportCsv(){
+    const rows=filtered();if(!rows.length){core.showToast&&core.showToast('There are no registration records to export.','warning');return;}
+    const data=[['Submitted','Student Name','Matric Number','Email','Level','Course Code','Course Title','Semester','Status','Decision Date','Rejection Reason'],...rows.map(r=>[r.createdAt,r.studentName,r.matricNumber,r.email,r.studentLevel,r.courseCode,r.courseTitle,r.semester,r.status,r.approvedAt,r.rejectionReason])];
+    const csv='\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='hod-course-registrations-'+(SELECTED_SESSION||'session')+'.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }
+  $('hrm-search').addEventListener('input',renderRecords);
+  $('hrm-semester').addEventListener('change',()=>{renderCourses();renderRecords();});
+  $('hrm-status').addEventListener('change',renderRecords);
+  $('hrm-session').addEventListener('change',()=>{SELECTED_SESSION=$('hrm-session').value;load();});
+  $('hrm-refresh').addEventListener('click',load);
+  $('hrm-export').addEventListener('click',exportCsv);
+  $('hrm-print').addEventListener('click',()=>window.print());
+  load();
+})();
+</script>

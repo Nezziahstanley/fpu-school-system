@@ -323,6 +323,125 @@ router.get('/teaching-plan', only, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/hod/registrations — department course registration monitoring
+// ============================================================
+router.get('/registrations', only, async (req, res) => {
+  try {
+    const departmentId = deptId(req);
+    const sessions = await db.select({
+      id: academicSessions.id,
+      name: academicSessions.name,
+      isCurrent: academicSessions.isCurrent
+    }).from(academicSessions).orderBy(desc(academicSessions.id));
+
+    let sessionId;
+    if (req.query.sessionId) {
+      sessionId = Number(req.query.sessionId);
+      if (!Number.isInteger(sessionId) || sessionId < 1 || !sessions.some(s => Number(s.id) === sessionId)) {
+        return res.status(400).json({ success: false, error: 'Select a valid academic session.' });
+      }
+    } else {
+      sessionId = Number(sessions.find(s => s.isCurrent)?.id || sessions[0]?.id || 0);
+    }
+
+    if (!sessionId) {
+      return res.json({
+        success: true, sessions, selectedSessionId: null, data: [], courses: [],
+        summary: { total: 0, pending: 0, approved: 0, rejected: 0, students: 0, courses: 0 }
+      });
+    }
+
+    const rows = await db.select({
+      id: courseRegistrations.id,
+      courseId: courses.id,
+      courseCode: courses.code,
+      courseTitle: courses.title,
+      courseLevel: courses.level,
+      courseUnits: courses.unit,
+      studentId: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      matricNumber: users.matricNumber,
+      studentLevel: users.level,
+      email: users.email,
+      semester: courseRegistrations.semester,
+      status: courseRegistrations.status,
+      createdAt: courseRegistrations.createdAt,
+      approvedAt: courseRegistrations.approvedAt,
+      rejectionReason: courseRegistrations.rejectionReason,
+      sessionName: academicSessions.name
+    }).from(courseRegistrations)
+      .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
+      .innerJoin(users, eq(courseRegistrations.studentId, users.id))
+      .leftJoin(academicSessions, eq(courseRegistrations.sessionId, academicSessions.id))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        eq(users.departmentId, departmentId),
+        eq(courseRegistrations.sessionId, sessionId)
+      ))
+      .orderBy(desc(courseRegistrations.createdAt), courses.code, users.lastName, users.firstName)
+      .limit(5000);
+
+    const studentSet = new Set();
+    const courseMap = new Map();
+    const summary = { total: rows.length, pending: 0, approved: 0, rejected: 0 };
+    for (const row of rows) {
+      const status = String(row.status || '').toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(summary, status)) summary[status] += 1;
+      studentSet.add(Number(row.studentId));
+      const key = String(row.courseId) + '|' + String(row.semester);
+      if (!courseMap.has(key)) courseMap.set(key, {
+        courseId: row.courseId,
+        courseCode: row.courseCode,
+        courseTitle: row.courseTitle,
+        level: row.courseLevel || '',
+        units: row.courseUnits,
+        semester: row.semester,
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        students: new Set()
+      });
+      const course = courseMap.get(key);
+      course.total += 1;
+      if (Object.prototype.hasOwnProperty.call(course, status)) course[status] += 1;
+      course.students.add(Number(row.studentId));
+    }
+    const coursesData = [...courseMap.values()].map(course => ({
+      courseId: course.courseId,
+      courseCode: course.courseCode,
+      courseTitle: course.courseTitle,
+      level: course.level,
+      units: course.units,
+      semester: course.semester,
+      total: course.total,
+      pending: course.pending,
+      approved: course.approved,
+      rejected: course.rejected,
+      students: course.students.size
+    })).sort((a,b)=>String(a.courseCode||'').localeCompare(String(b.courseCode||'')));
+
+    return res.json({
+      success: true,
+      sessions,
+      selectedSessionId: sessionId,
+      data: rows.map(row => ({
+        ...row,
+        studentName: [row.firstName, row.lastName].filter(Boolean).join(' '),
+        matricNumber: String(row.matricNumber || '').replace(/SMT/gi, '').replace(/\/+/g, '/').trim()
+      })),
+      courses: coursesData,
+      summary: { ...summary, students: studentSet.size, courses: coursesData.length },
+      truncated: rows.length === 5000
+    });
+  } catch (err) {
+    console.error('[hod/registrations] Error:', err);
+    return res.status(500).json({ success: false, error: 'Unable to load department course registrations.' });
+  }
+});
+
+// ============================================================
 // GET /api/hod/dashboard
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {

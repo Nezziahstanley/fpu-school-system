@@ -1,86 +1,93 @@
-﻿<!-- Portal → Librarian → Fines -->
-<div style="padding:0;">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Fines</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">All library fines</p>
-    </div>
-    <button id="fns-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+<!-- Portal → Librarian → Fines -->
+<section class="lib-fines" aria-label="Library fines">
+  <style>
+    .lib-fines{--g:#087653;--ink:#172b25;--muted:#718078;--line:#e5ece8;color:var(--ink);display:grid;gap:1rem}
+    .lib-fines *{box-sizing:border-box}
+    .lib-fines .lf-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+    .lib-fines h2{margin:0;font-size:1.45rem;font-weight:850;color:var(--ink)}.lib-fines .lf-sub{margin:.3rem 0 0;font-size:.84rem;color:var(--muted)}
+    .lib-fines .lf-btn{border:0;border-radius:9px;padding:.65rem 1rem;background:var(--g);color:#fff;font-size:.8rem;font-weight:800;cursor:pointer}
+    .lib-fines .lf-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+    .lib-fines .lf-stat{background:#fff;border:1px solid var(--line);border-radius:13px;padding:.9rem 1rem}
+    .lib-fines .lf-stat span{display:block;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.lib-fines .lf-stat strong{display:block;margin-top:.35rem;font-size:1.4rem;font-weight:900;color:var(--ink);overflow-wrap:anywhere}
+    .lib-fines .lf-stat.unpaid strong{color:#b42318}.lib-fines .lf-stat.paid strong{color:#087653}
+    .lib-fines .lf-toolbar{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;padding:.85rem;background:#fff;border:1px solid var(--line);border-radius:12px}
+    .lib-fines .lf-search{flex:1 1 240px;min-width:0;padding:.68rem .8rem;border:1px solid #d8e2dc;border-radius:8px;background:#fff;color:#172b25;font-size:.82rem;outline:none}
+    .lib-fines .lf-filter{padding:.68rem .8rem;border:1px solid #d8e2dc;border-radius:8px;background:#fff;color:#34483e;font-size:.8rem}
+    .lib-fines .lf-search:focus,.lib-fines .lf-filter:focus{border-color:#4aa783;box-shadow:0 0 0 3px rgba(8,118,83,.1)}
+    .lib-fines .lf-card{overflow:hidden;border:1px solid var(--line);border-radius:13px;background:#fff}.lib-fines .lf-table-wrap{overflow-x:auto}
+    .lib-fines table{width:100%;min-width:720px;border-collapse:collapse;font-size:.79rem}
+    .lib-fines th{padding:.75rem .8rem;text-align:left;background:#f5f9f6;color:#718078;font-size:.65rem;font-weight:850;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+    .lib-fines td{padding:.78rem .8rem;border-top:1px solid #edf2ef;color:#40534a;vertical-align:middle}.lib-fines td:first-child{font-weight:800;color:var(--ink)}
+    .lib-fines .lf-amount{font-weight:850;color:#b42318;white-space:nowrap}.lib-fines .lf-amount.paid{color:#087653}
+    .lib-fines .lf-status{display:inline-flex;padding:.27rem .58rem;border-radius:99px;font-size:.68rem;font-weight:850}.lib-fines .lf-status.paid{background:#e9f7ef;color:#087653}.lib-fines .lf-status.unpaid{background:#fff0ef;color:#b42318}
+    .lib-fines .lf-pay{border:0;border-radius:7px;padding:.44rem .68rem;background:#087653;color:#fff;font-size:.7rem;font-weight:800;cursor:pointer;white-space:nowrap}.lib-fines .lf-pay:disabled{opacity:.55;cursor:wait}
+    .lib-fines .lf-empty{padding:2.5rem 1rem;text-align:center;color:#829188}.lib-fines .lf-count{padding:.7rem .9rem;border-top:1px solid var(--line);font-size:.72rem;color:var(--muted)}
+    @media(max-width:640px){.lib-fines .lf-stats{grid-template-columns:1fr 1fr}.lib-fines .lf-stat:last-child{grid-column:1/-1}}
+  </style>
+  <header class="lf-head"><div><h2>Library Fines</h2><p class="lf-sub">Review outstanding charges and record fine payments.</p></div><button class="lf-btn" type="button" id="fns-refresh">↻ Refresh fines</button></header>
+  <div class="lf-stats">
+    <article class="lf-stat"><span>Total fine records</span><strong id="fns-total">—</strong></article>
+    <article class="lf-stat unpaid"><span>Outstanding amount</span><strong id="fns-outstanding">—</strong></article>
+    <article class="lf-stat paid"><span>Collected amount</span><strong id="fns-collected">—</strong></article>
   </div>
-
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Reason</th>
-            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Amount</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
-            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
-          </tr>
-        </thead>
-        <tbody id="fns-tbody">
-          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <div class="lf-toolbar">
+    <input class="lf-search" id="fns-search" type="search" placeholder="Search student, matric number or reason…" aria-label="Search library fines">
+    <select class="lf-filter" id="fns-status" aria-label="Filter fines by payment status"><option value="all">All payments</option><option value="unpaid">Unpaid</option><option value="paid">Paid</option></select>
   </div>
-</div>
-
+  <div class="lf-card"><div class="lf-table-wrap"><table>
+    <thead><tr><th>Student</th><th>Matric number</th><th>Reason</th><th>Amount</th><th>Payment status</th><th>Action</th></tr></thead>
+    <tbody id="fns-tbody"><tr><td colspan="6" class="lf-empty">Loading fine records…</td></tr></tbody>
+  </table></div><div class="lf-count" id="fns-count" aria-live="polite">Loading fine records…</div></div>
+</section>
 <script>
-(function () {
+(function(){
   'use strict';
-  const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
-
-  async function load() {
-    try {
-      const res = await core.portalFetch('/api/librarian/fines');
-      const rows = res.data || [];
-
-      if (!rows.length) {
-        $('fns-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">No fines recorded.</td></tr>';
-        return;
-      }
-
-      $('fns-tbody').innerHTML = rows.map(r => {
-        const f = r.fine || r;
-        const student = r.user || r.student || {};
-        return `
-          <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc((student.firstName || '') + ' ' + (student.lastName || ''))}</td>
-            <td style="padding:.65rem .75rem;color:#475569;">${esc(f.reason || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:right;font-weight:700;color:${f.isPaid ? '#065f46' : '#991b1b'};">${fmtMoney(f.amount)}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">
-              <span style="background:${f.isPaid ? '#d1fae5' : '#fef3c7'};color:${f.isPaid ? '#065f46' : '#92400e'};padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">${f.isPaid ? 'Paid' : 'Unpaid'}</span>
-            </td>
-            <td style="padding:.65rem .75rem;text-align:right;">
-              ${!f.isPaid ? `<button class="fns-btn" data-id="${f.id}" style="background:#065f46;color:#fff;">Mark Paid</button>` : '—'}
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      $('fns-tbody').querySelectorAll('.fns-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('Mark this fine as paid?')) return;
-          try {
-            await core.portalFetch(`/api/librarian/fines/${btn.dataset.id}/pay`, { method: 'POST' });
-            core.showToast && core.showToast('Fine marked as paid.', 'success');
-            load();
-          } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
-        });
-      });
-    } catch (err) {
-      $('fns-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+  const core=window.FPU_PORTAL||{};
+  const $=id=>document.getElementById(id);
+  const esc=s=>core.escapeHtml?core.escapeHtml(s):String(s==null?'':s);
+  const money=n=>'₦'+Number(n||0).toLocaleString('en-NG',{maximumFractionDigits:2});
+  let ALL=[];
+  function normalize(r){
+    const f=r.fine||r,student=r.user||r.student||{};
+    const paid=f.isPaid===true||f.isPaid==='true';
+    return {id:f.id,student:[student.firstName,student.lastName].filter(Boolean).join(' ')||student.email||'—',matric:student.matricNumber||'—',reason:f.reason||'—',amount:Number(f.amount||0),paid};
+  }
+  function render(){
+    const q=($('fns-search').value||'').trim().toLowerCase(),filter=$('fns-status').value;
+    const rows=ALL.filter(r=>(filter==='all'||(filter==='paid'?r.paid:!r.paid))&&[r.student,r.matric,r.reason].join(' ').toLowerCase().includes(q));
+    $('fns-count').textContent='Showing '+rows.length.toLocaleString()+' of '+ALL.length.toLocaleString()+' fine records';
+    if(!rows.length){$('fns-tbody').innerHTML='<tr><td colspan="6" class="lf-empty">No fine records match your search.</td></tr>';return;}
+    $('fns-tbody').innerHTML=rows.map(r=>'<tr><td>'+esc(r.student)+'</td><td>'+esc(r.matric)+'</td><td>'+esc(r.reason)+'</td><td><span class="lf-amount '+(r.paid?'paid':'')+'">'+money(r.amount)+'</span></td><td><span class="lf-status '+(r.paid?'paid':'unpaid')+'">'+(r.paid?'Paid':'Unpaid')+'</span></td><td>'+(r.paid?'<span style="color:#94a3b8">Completed</span>':'<button type="button" class="lf-pay" data-id="'+esc(r.id)+'">Mark paid</button>')+'</td></tr>').join('');
+    $('fns-tbody').querySelectorAll('[data-id]').forEach(btn=>btn.addEventListener('click',()=>markPaid(btn.dataset.id,btn)));
+  }
+  async function markPaid(id,btn){
+    if(!confirm('Confirm that this fine has been paid?'))return;
+    btn.disabled=true;btn.textContent='Updating…';
+    try{
+      await core.portalFetch('/api/librarian/fines/'+encodeURIComponent(id)+'/pay',{method:'POST'});
+      core.showToast&&core.showToast('Fine payment recorded.','success');
+      await load();
+    }catch(err){core.showToast&&core.showToast(err.message||'Unable to update fine.','error');btn.disabled=false;btn.textContent='Mark paid';}
+  }
+  async function load(){
+    $('fns-tbody').innerHTML='<tr><td colspan="6" class="lf-empty">Loading fine records…</td></tr>';
+    try{
+      const res=await core.portalFetch('/api/librarian/fines');
+      ALL=(res.data||[]).map(normalize);
+      const paid=ALL.filter(r=>r.paid),unpaid=ALL.filter(r=>!r.paid);
+      $('fns-total').textContent=ALL.length.toLocaleString();
+      $('fns-outstanding').textContent=money(unpaid.reduce((n,r)=>n+r.amount,0));
+      $('fns-collected').textContent=money(paid.reduce((n,r)=>n+r.amount,0));
+      render();
+    }catch(err){
+      $('fns-tbody').innerHTML='<tr><td colspan="6" class="lf-empty">⚠ '+esc(err.message||'Unable to load fine records.')+'</td></tr>';
+      $('fns-count').textContent='Fine records could not be loaded';
+      core.showToast&&core.showToast(err.message||'Unable to load fine records.','error');
     }
   }
-
-  $('fns-refresh')?.addEventListener('click', load);
+  $('fns-refresh')?.addEventListener('click',load);
+  $('fns-search')?.addEventListener('input',render);
+  $('fns-status')?.addEventListener('change',render);
   load();
 })();
 </script>
-

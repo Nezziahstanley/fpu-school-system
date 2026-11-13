@@ -3035,32 +3035,41 @@ async function loadTimetableIndex() {
 
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
 
-  const sessionId = (document.getElementById('tt-session') || {}).value || '';
+  const sessionSelect = document.getElementById('tt-session');
+  const sessionId = sessionSelect?.value || '';
   const semester = (document.getElementById('tt-semester') || {}).value || 'first';
   const search = (document.getElementById('tt-search') || {}).value || '';
   const schoolFilter = (document.getElementById('tt-school') || {}).value || '';
 
   try {
-    const qs = new URLSearchParams({ limit: 5000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
-
-    const [deptsRes, slotsRes, schoolsRes, coursesRes] = await Promise.all([
+    const [deptsRes, schoolsRes, coursesRes, sessionsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch(`/api/admin/timetable?${qs}`),
       adminFetch('/api/admin/schools'),
       adminFetch('/api/admin/courses?limit=5000'),
+      adminFetch('/api/admin/sessions'),
     ]);
 
-    const depts = (await deptsRes.json()).data || [];
-    const slots = (await slotsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
+    const [deptsJson, schoolsJson, coursesJson, sessionsJson] = await Promise.all([deptsRes.json(), schoolsRes.json(), coursesRes.json(), sessionsRes.json()]);
+    if (!deptsRes.ok || !schoolsRes.ok || !coursesRes.ok || !sessionsRes.ok) throw new Error('Unable to load timetable departments, schools, courses or sessions.');
+    const depts = Array.isArray(deptsJson.data) ? deptsJson.data : [];
+    const schools = Array.isArray(schoolsJson.data) ? schoolsJson.data : [];
+    const courses = Array.isArray(coursesJson.data) ? coursesJson.data : [];
+    const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+    const resolvedSession = sessions.find(s => s.isCurrent) || [...sessions].sort((a,b) => Number(b.id)-Number(a.id))[0] || null;
+    const effectiveSessionId = sessionId || (resolvedSession ? String(resolvedSession.id) : '');
+    if (sessionSelect && !sessionId && effectiveSessionId) sessionSelect.value = effectiveSessionId;
+    if (!effectiveSessionId) throw new Error('No academic session is available. Create an academic session before viewing timetables.');
+    const qs = new URLSearchParams({ limit: 5000, sessionId: effectiveSessionId });
+    if (semester) qs.set('semester', semester);
+    const slotsRes = await adminFetch(`/api/admin/timetable?${qs.toString()}`);
+    const slotsJson = await slotsRes.json();
+    if (!slotsRes.ok || slotsJson.success === false) throw new Error(slotsJson.error || 'Unable to load timetable slots.');
+    const slots = Array.isArray(slotsJson.data) ? slotsJson.data : [];
 
     window.__ttCache = slots.map((s) => s.slot || s);
 
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
+    const courseById = new Map(courses.map((c) => [Number(c.id), c]));
+    const schoolMap = new Map(schools.map((s) => [Number(s.id), s]));
 
     const byDept = new Map();
     for (const d of depts) {
@@ -3069,9 +3078,9 @@ async function loadTimetableIndex() {
 
     for (const s of slots) {
       const slot = s.slot || s;
-      const c = courseById.get(slot.courseId);
+      const c = courseById.get(Number(slot.courseId));
       if (!c) continue;
-      const bucket = byDept.get(c.departmentId);
+      const bucket = byDept.get(Number(c.departmentId));
       if (!bucket) continue;
       
       bucket.slots.push(s);
@@ -3084,17 +3093,23 @@ async function loadTimetableIndex() {
       else if (status === 'approved') bucket.approved++;
     }
 
-    let totalSlots = 0, scheduledDepts = 0, pendingDepts = 0;
+    let totalSlots = 0, scheduledDepts = 0, pendingDepts = 0, totalApproved = 0, totalDraft = 0, totalPending = 0;
     for (const b of byDept.values()) {
       totalSlots += b.slots.length;
       if (b.slots.length > 0) scheduledDepts++;
       if (b.pending > 0) pendingDepts++;
+      totalApproved += b.approved;
+      totalDraft += b.draft;
+      totalPending += b.pending;
     }
 
     setText('tt-stat-depts', depts.length);
     setText('tt-stat-slots', totalSlots);
     setText('tt-stat-scheduled', scheduledDepts);
     setText('tt-stat-conflicts', pendingDepts);
+    setText('tt-stat-approved', totalApproved);
+    setText('tt-stat-pending', totalPending);
+    setText('tt-stat-draft', totalDraft);
 
     const visible = [...byDept.values()].filter((b) => {
       if (schoolFilter && String(b.dept.schoolId) !== String(schoolFilter)) return false;
@@ -3118,7 +3133,7 @@ async function loadTimetableIndex() {
       }, 0);
       const days = new Set(b.slots.map((s) => (s.slot || s).dayOfWeek));
       const isEmpty = b.slots.length === 0;
-      const school = schoolMap.get(b.dept.schoolId);
+      const school = schoolMap.get(Number(b.dept.schoolId));
 
       // FIX: Determine Badge based on Draft vs Pending vs Approved
       let badgeClass = 'badge-muted', badgeText = 'Empty';
@@ -3149,8 +3164,13 @@ async function loadTimetableIndex() {
             <div class="ttd-stat"><span class="num">${units}</span><span class="label">Units</span></div>
             <div class="ttd-stat"><span class="num">${days.size}</span><span class="label">Days</span></div>
           </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px;font-weight:750;">
+            <span style="padding:4px 7px;border-radius:5px;background:#ecfdf5;color:#047857;">Approved: ${b.approved}</span>
+            <span style="padding:4px 7px;border-radius:5px;background:#eff6ff;color:#1d4ed8;">Pending: ${b.pending}</span>
+            <span style="padding:4px 7px;border-radius:5px;background:#fffbeb;color:#92400e;">Draft: ${b.draft}</span>
+          </div>
           <div class="ttd-footer">
-            <span>${isEmpty ? 'Empty' : 'View timetable'}</span>
+            <span>${b.approved > 0 ? 'View approved timetable' : isEmpty ? 'No timetable slots' : 'Open timetable details'}</span>
             <span class="arrow">→</span>
           </div>
         </div>
@@ -3161,7 +3181,7 @@ async function loadTimetableIndex() {
       const openDepartmentTimetable = () => {
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
           departmentId: Number(card.dataset.deptId),
-          sessionId: sessionId || '',
+          sessionId: effectiveSessionId,
           semester,
           status: 'approved',
           name: card.dataset.deptName,
@@ -3557,7 +3577,7 @@ async function openDeptModal(deptId, deptName, deptCode) {
       const lvlClass = c.level ? c.level.toLowerCase() : 'other';
 
       return `
-        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}'">
           <div class="course-card-header">
             <span class="course-code-badge">${escapeHtml(c.code)}</span>
             <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
@@ -3627,6 +3647,7 @@ async function loadDepartmentAttendance() {
 
   // Populate academic sessions once and retain the current/latest session.
   const sessionSelect = document.getElementById('abd-filter-session');
+  const semesterSelect = document.getElementById('abd-filter-semester');
   if (sessionSelect && !sessionSelect.dataset.loaded) {
     try {
       const sessionsRes = await adminFetch('/api/admin/sessions');
@@ -3636,8 +3657,10 @@ async function loadDepartmentAttendance() {
       const hashSession = params.get('sessionId') || '';
       sessionSelect.innerHTML = '<option value="">Current / Latest Session</option>' + sessions.map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name || s.sessionName || `Session ${s.id}`)}</option>`).join('');
       sessionSelect.value = hashSession || (current ? String(current.id) : '');
+      if (semesterSelect) semesterSelect.value = params.get('semester') || '';
       sessionSelect.dataset.loaded = '1';
       sessionSelect.addEventListener('change', loadDepartmentAttendance);
+      semesterSelect?.addEventListener('change', loadDepartmentAttendance);
     } catch (sessionError) { console.warn('Could not load attendance sessions', sessionError); }
   }
 

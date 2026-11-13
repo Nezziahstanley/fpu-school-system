@@ -120,13 +120,46 @@
           '<span class="lec-message-meta">' + (activeBox === 'inbox' ? 'From: ' : 'To: ') + core.escapeHtml(name) + (m.createdAt ? ' · ' + core.escapeHtml(core.timeAgo(m.createdAt)) : '') + '</span></span>' +
           '<span aria-hidden="true" style="color:var(--muted,#64748b);">' + (expanded ? '⌃' : '⌄') + '</span>' +
         '</button>' +
+        (unread ? '<div style="padding:0 1rem .8rem 4.5rem;"><button type="button" class="btn btn-sm btn-primary" data-mark-read="' + core.escapeHtml(id) + '">✓ Mark as read</button></div>' : '') +
         (expanded ? '<div class="lec-message-detail"><div class="small muted" style="margin-bottom:.5rem;">' + core.escapeHtml(dateLabel(m.createdAt)) + '</div>' + body + '</div>' : '') +
       '</article>';
     }).join('');
-    list.querySelectorAll('[data-message-id]').forEach(button => button.addEventListener('click', () => {
+    list.querySelectorAll('[data-message-id]').forEach(button => button.addEventListener('click', async () => {
       const id = button.getAttribute('data-message-id');
+      const row = allMessages.find((item, index) => String((item.message || item).id || item.id || index) === id);
+      const message = row && (row.message || row);
+      if (activeBox === 'inbox' && message && isUnread(row, message)) {
+        try {
+          const response = await core.portalFetch('/api/portal/messages/' + encodeURIComponent(id));
+          if (response.data) Object.assign(message, response.data);
+          else { message.isRead = true; message.readAt = new Date().toISOString(); }
+        } catch (err) {
+          core.showToast('Could not mark this message as read: ' + err.message, 'error');
+          return;
+        }
+      }
       expandedId = expandedId === id ? null : id;
       render();
+    }));
+    list.querySelectorAll('[data-mark-read]').forEach(button => button.addEventListener('click', async () => {
+      const id = button.getAttribute('data-mark-read');
+      button.disabled = true;
+      button.textContent = 'Updating…';
+      try {
+        const response = await core.portalFetch('/api/portal/messages/' + encodeURIComponent(id));
+        const row = allMessages.find((item, index) => String((item.message || item).id || item.id || index) === id);
+        const message = row && (row.message || row);
+        if (message) {
+          if (response.data) Object.assign(message, response.data);
+          else { message.isRead = true; message.readAt = new Date().toISOString(); }
+        }
+        core.showToast('Message marked as read.', 'success');
+        render();
+      } catch (err) {
+        core.showToast('Could not mark this message as read: ' + err.message, 'error');
+        button.disabled = false;
+        button.textContent = '✓ Mark as read';
+      }
     }));
   }
 

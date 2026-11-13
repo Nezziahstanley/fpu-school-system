@@ -180,10 +180,34 @@ router.put('/books/:id', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), as
   try {
     const bookId = Number(req.params.id);
     const b = req.body || {};
+    const copiesTotal = Number(b.copiesTotal || 1);
 
+    if (!Number.isInteger(bookId) || bookId < 1) {
+      return res.status(400).json({ success: false, error: 'A valid book ID is required.' });
+    }
     if (!b.title) {
       return res.status(400).json({ success: false, error: 'Title is required.' });
     }
+    if (!Number.isInteger(copiesTotal) || copiesTotal < 1) {
+      return res.status(400).json({ success: false, error: 'Total copies must be a whole number greater than zero.' });
+    }
+
+    const existingResult = await db.execute(sql`
+      SELECT copies_total AS "copiesTotal", copies_available AS "copiesAvailable"
+      FROM books WHERE id = ${bookId} LIMIT 1
+    `);
+    const existing = existingResult.rows[0];
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Book not found.' });
+    }
+    const checkedOut = Math.max(0, Number(existing.copiesTotal || 0) - Number(existing.copiesAvailable || 0));
+    if (copiesTotal < checkedOut) {
+      return res.status(409).json({
+        success: false,
+        error: `Cannot reduce total copies below ${checkedOut}; that many copies are currently borrowed.`,
+      });
+    }
+    const copiesAvailable = copiesTotal - checkedOut;
 
     let ebookUrl = null;
     if (req.files && req.files.pdf && req.files.pdf[0]) {
@@ -199,7 +223,8 @@ router.put('/books/:id', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), as
         category = ${b.category || null},
         publisher = ${b.publisher || null},
         year = ${b.year ? Number(b.year) : null},
-        copies_total = ${Math.max(1, Number(b.copiesTotal || 1))},
+        copies_total = ${copiesTotal},
+        copies_available = ${copiesAvailable},
         shelf = ${b.shelf || null},
         is_general = ${b.isGeneral !== 'false'},
         ${ebookUrl ? sql`ebook_url = ${ebookUrl},` : sql``}

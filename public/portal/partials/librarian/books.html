@@ -12,7 +12,23 @@
     </div>
   </div>
 
+  <style>
+    .lib-book-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}
+    .lib-book-stat{background:#fff;border:1px solid #e5ece8;border-radius:12px;padding:.9rem 1rem}
+    .lib-book-stat span{display:block;color:#718078;font-size:.67rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+    .lib-book-stat strong{display:block;margin-top:.3rem;color:#172b25;font-size:1.45rem;font-weight:900}
+    .lib-book-toolbar{padding:.8rem;border-bottom:1px solid #e5ece8;background:#fff}
+    .lib-book-toolbar input{width:100%;max-width:420px;padding:.65rem .8rem;border:1px solid #d8e2dc;border-radius:8px;font-size:.82rem}
+    @media(max-width:760px){.lib-book-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+  <div class="lib-book-stats">
+    <div class="lib-book-stat"><span>Book titles</span><strong id="book-stat-titles">—</strong></div>
+    <div class="lib-book-stat"><span>Total copies</span><strong id="book-stat-total">—</strong></div>
+    <div class="lib-book-stat"><span>Available copies</span><strong id="book-stat-available">—</strong></div>
+    <div class="lib-book-stat"><span>Digital titles</span><strong id="book-stat-digital">—</strong></div>
+  </div>
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div class="lib-book-toolbar"><input type="search" id="book-search" placeholder="Search title, author, ISBN or category…" aria-label="Search library catalogue"></div>
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
@@ -133,6 +149,11 @@
     try {
       const res = await core.portalFetch('/api/librarian/books');
       ALL_BOOKS = res.data || [];
+      const total = (key) => ALL_BOOKS.reduce((sum, book) => sum + Number(book[key] || 0), 0);
+      $('book-stat-titles').textContent = ALL_BOOKS.length.toLocaleString();
+      $('book-stat-total').textContent = total('copiesTotal').toLocaleString();
+      $('book-stat-available').textContent = total('copiesAvailable').toLocaleString();
+      $('book-stat-digital').textContent = ALL_BOOKS.filter(book => !!(book.isDigital || book.ebookUrl || book.externalUrl)).length.toLocaleString();
       render();
     } catch (err) {
       $('books-tbody').innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
@@ -144,7 +165,13 @@
       $('books-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No books yet. Click "Add Book" to start.</td></tr>';
       return;
     }
-    $('books-tbody').innerHTML = ALL_BOOKS.map(b => {
+    const query = ($('book-search')?.value || '').trim().toLowerCase();
+    const filtered = ALL_BOOKS.filter(b => [b.title, b.author, b.isbn, b.category].join(' ').toLowerCase().includes(query));
+    if (!filtered.length) {
+      $('books-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No books match your search.</td></tr>';
+      return;
+    }
+    $('books-tbody').innerHTML = filtered.map(b => {
       const digital = b.ebookUrl || b.externalUrl;
       return `
         <tr style="border-bottom:1px solid #f1f5f9;">
@@ -272,7 +299,7 @@
     } catch (err) {
       console.error('[books/save] Failed:', err);
       core.showToast && core.showToast(err.message || 'Save failed', 'error');
-      FPU_PORTAL.showToast('Save failed: ' + (err.message || 'Unknown error', 'info'));
+      // The toast above already reports the save error; avoid a duplicate notification.
     } finally {
       btn.disabled = false;
       btn.textContent = 'Save Book';
@@ -281,6 +308,7 @@
 
   $('book-add')?.addEventListener('click', () => openModal(null));
   $('book-refresh')?.addEventListener('click', load);
+  $('book-search')?.addEventListener('input', render);
   $('book-modal-close')?.addEventListener('click', closeModal);
   $('book-cancel')?.addEventListener('click', closeModal);
   $('book-save')?.addEventListener('click', saveBook);

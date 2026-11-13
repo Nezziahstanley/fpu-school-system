@@ -1,6 +1,5 @@
--- Allow HODs to publish notices only to users in their own department.
-ALTER TYPE announcement_audience ADD VALUE IF NOT EXISTS 'department';
-
+-- Announcements use a VARCHAR audience column in the initial schema.
+-- Add department ownership so HOD notices can be scoped to one department.
 ALTER TABLE announcements
   ADD COLUMN IF NOT EXISTS department_id integer
   REFERENCES departments(id) ON DELETE SET NULL;

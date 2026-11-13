@@ -3224,7 +3224,7 @@ async function loadExamsIndex() {
       const isHealthy = examCount > 0;
       
       return `
-        <div class="ex-school-card ${isHealthy ? '' : 'empty'}" onclick="window.location.hash='#exam-sheet?schoolId=${s.id}&sessionId=${sessionId}&semester=${semester}&name=${encodeURIComponent(s.name)}'">
+        <div class="ex-school-card ${isHealthy ? '' : 'empty'}" role="button" tabindex="0" onclick="FPU_ADMIN.openExamSchoolDepartments(${Number(s.id)}, '${escapeQuotes(s.name)}', '${escapeQuotes(sessionId)}', '${escapeQuotes(semester)}')">
           <div class="esc-head">
             <span class="esc-code">${escapeHtml(s.code || 'SCH')}</span>
             <span class="esc-badge">Exam Sheet</span>
@@ -14670,6 +14670,113 @@ async function updateNotificationBadge() {
 // ============================================
 // EXAMS: Approval Dashboard
 // ============================================
+async function openExamSchoolDepartments(schoolId, schoolName, sessionId, semester) {
+  const existing = document.getElementById('admin-exam-review-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'admin-exam-review-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.66);display:flex;align-items:center;justify-content:center;padding:18px;';
+  modal.innerHTML = `
+    <section style="width:min(1120px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);">
+      <header style="position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;background:#065f46;color:#fff;">
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.12em;color:#a7f3d0;">EXAMINATION APPROVALS</div><h2 id="exam-review-title" style="margin:3px 0 0;color:#fff;font-size:20px;">${escapeHtml(schoolName)}</h2></div>
+        <button type="button" id="exam-review-close" aria-label="Close" style="border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;border-radius:9px;padding:8px 12px;font-size:20px;cursor:pointer;">×</button>
+      </header>
+      <div style="padding:20px 22px;">
+        <div id="exam-review-content"><div style="padding:35px;text-align:center;color:#64748b;">Loading departments and HOD submissions…</div></div>
+      </div>
+    </section>`;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector('#exam-review-close').addEventListener('click', close);
+  modal.addEventListener('click', event => { if (event.target === modal) close(); });
+  const content = modal.querySelector('#exam-review-content');
+
+  try {
+    const query = new URLSearchParams({ sessionId: String(sessionId || ''), semester: String(semester || 'first'), limit: '5000' });
+    const [deptRes, examRes] = await Promise.all([
+      adminFetch('/api/admin/departments?schoolId=' + encodeURIComponent(schoolId)),
+      adminFetch('/api/admin/exams?' + query.toString())
+    ]);
+    const [deptJson, examJson] = await Promise.all([deptRes.json(), examRes.json()]);
+    if (!deptRes.ok || deptJson.success === false) throw new Error(deptJson.error || 'Could not load departments.');
+    if (!examRes.ok || examJson.success === false) throw new Error(examJson.error || 'Could not load exam submissions.');
+    const departments = (Array.isArray(deptJson.data) ? deptJson.data : []).filter(d => Number(d.schoolId) === Number(schoolId));
+    const submitted = (Array.isArray(examJson.data) ? examJson.data : []).filter(row => {
+      const ex = row.exam || row;
+      return String(ex.status || '').toLowerCase() === 'submitted' &&
+        departments.some(d => Number(d.id) === Number(row.course?.departmentId));
+    });
+    const counts = new Map(departments.map(d => [Number(d.id), { total: 0, courses: [] }]));
+    submitted.forEach(row => {
+      const deptId = Number(row.course?.departmentId);
+      const bucket = counts.get(deptId);
+      if (bucket) { bucket.total++; bucket.courses.push(row); }
+    });
+    const active = departments.filter(d => (counts.get(Number(d.id))?.total || 0) > 0);
+    const empty = departments.filter(d => !active.includes(d));
+    content.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;"><strong>${active.length}</strong><div style="font-size:11px;color:#166534;">Departments with submissions</div></div>
+        <div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;"><strong>${submitted.length}</strong><div style="font-size:11px;color:#1d4ed8;">Exams awaiting approval</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;" id="exam-review-departments">
+        ${departments.map(d => {
+          const count = counts.get(Number(d.id))?.total || 0;
+          return `<button type="button" data-dept-id="${Number(d.id)}" style="text-align:left;border:1px solid ${count ? '#86efac' : '#e2e8f0'};background:${count ? '#f0fdf4' : '#f8fafc'};border-radius:12px;padding:15px;cursor:pointer;color:#0f172a;">
+            <div style="display:flex;justify-content:space-between;gap:8px;"><strong>${escapeHtml(d.code || 'DEPT')}</strong><span style="font-size:11px;font-weight:800;color:${count ? '#047857' : '#64748b'};">${count} submitted</span></div>
+            <div style="margin-top:8px;font-weight:700;">${escapeHtml(d.name || 'Department')}</div>
+            <div style="margin-top:5px;font-size:11px;color:#64748b;">${count ? 'Open submitted exams for review →' : 'No HOD submissions for this selection'}</div>
+          </button>`;
+        }).join('')}
+      </div>
+      <div id="exam-review-detail" style="margin-top:18px;"></div>`;
+    const deptGrid = content.querySelector('#exam-review-departments');
+    const detail = content.querySelector('#exam-review-detail');
+    deptGrid.querySelectorAll('[data-dept-id]').forEach(button => button.addEventListener('click', () => {
+      const dept = departments.find(d => Number(d.id) === Number(button.dataset.deptId));
+      const rows = counts.get(Number(button.dataset.deptId))?.courses || [];
+      if (!rows.length) {
+        detail.innerHTML = `<div style="padding:18px;border:1px dashed #cbd5e1;border-radius:10px;color:#64748b;">No exams have been submitted by the HOD of ${escapeHtml(dept?.name || 'this department')} for this session and semester. Drafts are not eligible for approval.</div>`;
+        return;
+      }
+      detail.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;">
+          <div><h3 style="margin:0;color:#064e3b;">${escapeHtml(dept.name)} — HOD Submissions</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">Only submitted exams are shown. Drafts and already-approved exams are excluded.</p></div>
+          <button type="button" id="exam-approve-dept" style="border:0;background:#047857;color:#fff;padding:10px 14px;border-radius:8px;font-weight:800;cursor:pointer;">Approve all ${rows.length}</button>
+        </div>
+        <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;">
+          <table style="width:100%;min-width:850px;border-collapse:collapse;font-size:13px;">
+            <thead style="background:#f1f5f9;"><tr>${['Course','Exam Date','Time','Venue','Invigilators','Status','Action'].map(h=>`<th style="padding:11px;text-align:left;border-bottom:1px solid #cbd5e1;">${h}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(row => {const ex=row.exam||row, course=row.course||{};return `<tr data-exam-id="${Number(ex.id)}"><td style="padding:11px;border-bottom:1px solid #e2e8f0;"><strong>${escapeHtml(course.code||'—')}</strong><br>${escapeHtml(course.title||'')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(fmtDate(ex.examDate))}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(ex.startTime||'—')} – ${escapeHtml(ex.endTime||'—')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(ex.venue||'—')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(ex.invigilators||'—')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;"><span style="color:#1d4ed8;font-weight:800;">Submitted</span></td><td style="padding:11px;border-bottom:1px solid #e2e8f0;"><button type="button" data-approve-exam="${Number(ex.id)}" style="border:0;background:#047857;color:white;border-radius:7px;padding:7px 10px;font-weight:700;cursor:pointer;">Approve</button></td></tr>`;}).join('')}</tbody>
+          </table>
+        </div>`;
+      const approveOne = async id => {
+        const res = await adminFetch('/api/admin/exams/' + id, { method: 'PUT', body: JSON.stringify({ status: 'approved' }) });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) throw new Error(json.error || 'Approval failed.');
+      };
+      detail.querySelectorAll('[data-approve-exam]').forEach(btn => btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Approving…';
+        try { await approveOne(btn.dataset.approveExam); showToast('Exam approved.', 'success'); await openExamSchoolDepartments(schoolId, schoolName, sessionId, semester); }
+        catch (error) { btn.disabled = false; btn.textContent = 'Approve'; showToast(error.message, 'error'); }
+      }));
+      detail.querySelector('#exam-approve-dept')?.addEventListener('click', async () => {
+        const ok = await window.fpuConfirm(`Approve all ${rows.length} submitted exams for ${dept.name}?`, { title: 'Approve HOD submissions', type: 'success', okText: 'Approve all' });
+        if (!ok) return;
+        const button = detail.querySelector('#exam-approve-dept'); button.disabled = true; button.textContent = 'Approving…';
+        try {
+          for (const row of rows) await approveOne((row.exam || row).id);
+          showToast(`Approved ${rows.length} submitted exams for ${dept.name}.`, 'success');
+          await openExamSchoolDepartments(schoolId, schoolName, sessionId, semester);
+        } catch (error) { button.disabled = false; button.textContent = 'Retry approval'; showToast(error.message, 'error'); }
+      });
+    }));
+  } catch (error) {
+    content.innerHTML = `<div style="padding:18px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function loadExamApprovals() {
   const grid = document.getElementById('ex-approval-grid');
   if (!grid) return;
@@ -15612,7 +15719,7 @@ window.FPU_ADMIN = {
   approveDepartmentTimetable,
 
   // Exams
-  loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams,
+  loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams, openExamSchoolDepartments,
 
     // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,

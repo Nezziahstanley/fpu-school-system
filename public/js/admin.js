@@ -12831,7 +12831,7 @@ async function loadExamSheet() {
 
   // Wire Top Buttons
   if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { schoolId, departmentId, sessionId, semester });
-  if (printBtn) printBtn.onclick = () => window.print();
+  if (printBtn) printBtn.onclick = () => { document.body.classList.add('printing-exam-sheet'); window.addEventListener('afterprint', () => document.body.classList.remove('printing-exam-sheet'), { once: true }); window.print(); };
   if (exportBtn) exportBtn.onclick = () => {
     const table = document.querySelector('.ex-table');
     if (table) exportTableAsCSV(table, `${schoolName}-Exams.csv`);
@@ -13062,9 +13062,9 @@ async function loadExamSheet() {
 
     @media print {
       @page { size: landscape; margin: 10mm; }
-      body * { visibility: hidden; }
-      .ex-sheet, .ex-sheet * { visibility: visible; }
-      .ex-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
+      body.printing-exam-sheet * { visibility: hidden !important; }
+      body.printing-exam-sheet .ex-sheet, body.printing-exam-sheet .ex-sheet * { visibility: visible !important; }
+      body.printing-exam-sheet .ex-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
       .ex-table th, .ex-table td { border: 1px solid #000 !important; }
       .dept-exam-section { page-break-after: always; }
     }
@@ -13836,7 +13836,7 @@ async function openTranscriptModal(studentId) {
       <div class="fpu-modal-header" style="background: #fff; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
         <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a; font-family: 'Poppins', sans-serif;">Student Transcript</h3>
         <div style="display: flex; gap: 8px;">
-          <button class="btn btn-sm btn-outline" onclick="window.print()">🖨 Print</button>
+          <button class="btn btn-sm btn-outline" id="tx-modal-print">🖨 Print</button>
           <button class="btn btn-sm btn-ghost" onclick="document.getElementById('transcript-modal-backdrop').remove()" style="font-size: 1.5rem; line-height: 1; padding: 0 8px;">&times;</button>
         </div>
       </div>
@@ -13848,13 +13848,13 @@ async function openTranscriptModal(studentId) {
 
     <style>
       @media print {
-        body * { visibility: hidden; }
-        .tx-document, .tx-document * { visibility: visible; }
-        .tx-document { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none !important; border: none !important; }
-        #transcript-modal-backdrop { position: static !important; background: transparent !important; padding: 0 !important; margin: 0 !important; display: block !important; }
-        .fpu-modal-header, .fpu-modal { background: transparent !important; box-shadow: none !important; border: none !important; max-height: none !important; width: 100% !important; max-width: 100% !important; overflow: visible !important; }
-        .fpu-modal-body { padding: 0 !important; overflow: visible !important; display: block !important; }
-        .sidebar, .topbar, .page-head { display: none !important; }
+        body.printing-transcript * { visibility: hidden !important; }
+        body.printing-transcript .tx-document, body.printing-transcript .tx-document * { visibility: visible !important; }
+        body.printing-transcript .tx-document { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none !important; border: none !important; }
+        body.printing-transcript #transcript-modal-backdrop { position: static !important; background: transparent !important; padding: 0 !important; margin: 0 !important; display: block !important; }
+        body.printing-transcript .fpu-modal-header, body.printing-transcript .fpu-modal { background: transparent !important; box-shadow: none !important; border: none !important; max-height: none !important; width: 100% !important; max-width: 100% !important; overflow: visible !important; }
+        body.printing-transcript .fpu-modal-body { padding: 0 !important; overflow: visible !important; display: block !important; }
+        body.printing-transcript .sidebar, body.printing-transcript .topbar, body.printing-transcript .page-head { display: none !important; }
       }
 
       .tx-document { background: #fff; padding: 40px; border-radius: 4px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); position: relative; overflow: hidden; font-family: 'Inter', Arial, sans-serif; color: #0f172a; width: 100%; max-width: 800px; min-height: 1000px; }
@@ -13896,6 +13896,9 @@ async function openTranscriptModal(studentId) {
     </style>
   `;
   document.body.appendChild(backdrop);
+
+  const modalPrintBtn = document.getElementById('tx-modal-print');
+  if (modalPrintBtn) modalPrintBtn.onclick = () => { document.body.classList.add('printing-transcript'); window.addEventListener('afterprint', () => document.body.classList.remove('printing-transcript'), { once: true }); window.print(); };
 
   const root = document.getElementById('tx-modal-body');
 
@@ -15177,7 +15180,7 @@ async function loadTimetableSheet() {
     }
 
     const printBtn = document.getElementById('tsheet-print');
-    if (printBtn) printBtn.onclick = () => window.print();
+    if (printBtn) printBtn.onclick = () => { document.body.classList.add('printing-timetable'); window.addEventListener('afterprint', () => document.body.classList.remove('printing-timetable'), { once: true }); window.print(); };
 
     const exportBtn = document.getElementById('tsheet-export');
     if (exportBtn) {
@@ -15589,9 +15592,9 @@ async function approveDepartmentTimetable(departmentId, deptName, selectedSessio
   style.textContent = `
     @media print {
       @page { size: A3 landscape; margin: 10mm; }
-      body * { visibility: hidden; }
-      .tt-sheet-printable, .tt-sheet-printable * { visibility: visible; }
-      .tt-sheet-printable { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; box-shadow: none !important; border: none !important; }
+      body.printing-timetable * { visibility: hidden !important; }
+      body.printing-timetable .tt-sheet-printable, body.printing-timetable .tt-sheet-printable * { visibility: visible !important; }
+      body.printing-timetable .tt-sheet-printable { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; box-shadow: none !important; border: none !important; }
       .no-print { display: none !important; }
     }
   `;

@@ -1925,3 +1925,31 @@ body.registrar-portal-theme #page-view .data-table tbody td {padding:.75rem;colo
 }
 
 
+
+
+/* Adaptive print layout shared by student, staff and officer dashboards */
+@media print {
+  body.portal-app { background:#fff !important; color:#111 !important; }
+  body.portal-app #page-view {
+    display:block !important; width:100% !important; max-width:none !important;
+    height:auto !important; max-height:none !important; overflow:visible !important;
+    margin:0 !important; padding:0 !important;
+  }
+  body.portal-app #page-view * { overflow:visible; }
+  body.portal-app #page-view .panel,
+  body.portal-app #page-view .card,
+  body.portal-app #page-view .table-wrap { box-shadow:none !important; }
+  body.portal-app #page-view .table-wrap { overflow:visible !important; border:0 !important; }
+  body.portal-app #page-view table { width:100% !important; border-collapse:collapse !important; }
+  body.portal-app #page-view th,
+  body.portal-app #page-view td { color:#111 !important; border:1px solid #9ca3af !important; }
+  body.portal-app #page-view button,
+  body.portal-app #page-view .btn,
+  body.portal-app #page-view .filter-bar,
+  body.portal-app #page-view .filters,
+  body.portal-app #page-view .pagination,
+  body.portal-app #page-view .no-print { display:none !important; }
+  body.portal-app #page-view .panel,
+  body.portal-app #page-view tr { break-inside:avoid; }
+  body.portal-app #page-view img { max-width:100% !important; }
+}

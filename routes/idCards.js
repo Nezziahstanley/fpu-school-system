@@ -18,7 +18,8 @@ router.get('/', requireRole(ACCESS), async (req, res, next) => {
     const rows = await db.select({
       id: users.id, firstName: users.firstName, middleName: users.middleName, lastName: users.lastName,
       email: users.email, phone: users.phone, role: users.role, matricNumber: users.matricNumber,
-      level: users.level, photoUrl: users.idCardPhotoUrl, profilePhotoUrl: users.photoUrl,
+      level: users.level, departmentId: sql`COALESCE(${users.departmentId}, ${staffProfiles.departmentId})`,
+      sessionName: academicSessions.name, photoUrl: users.idCardPhotoUrl, profilePhotoUrl: users.photoUrl,
       isActive: users.isActive, programmeName: programmes.name,
       schoolName: schools.name, departmentName: sql`COALESCE(${departments.name}, (SELECT d.name FROM departments d WHERE d.id = ${staffProfiles.departmentId}))`,
       staffNumber: staffProfiles.staffNumber, rank: staffProfiles.rank, qualification: staffProfiles.qualification,

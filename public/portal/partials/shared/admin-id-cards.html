@@ -32,6 +32,47 @@
 .id-card-back{width:100%;max-width:440px;aspect-ratio:1.58/1;margin:1rem auto;background:linear-gradient(145deg,#fff,#f0fdf4);border:5px double #065f46;border-radius:15px;box-sizing:border-box;padding:20px;font:12px/1.65 Georgia,serif;color:#334155;position:relative}
 .id-card-back:after{content:"";position:absolute;inset:0;background:url('/images/logo.png') center/45% no-repeat;opacity:.035;pointer-events:none}
 @media(max-width:600px){.ic-department-grid{grid-template-columns:1fr 1fr}.id-card-info strong{font-size:9px}.id-card-photo{width:70px;height:92px}}
+
+.id-card-preview{max-width:500px;aspect-ratio:1.58/1}
+.id-card-top img{width:42px;height:42px;object-fit:contain;background:#fff;border:2px solid #fbbf24;border-radius:50%;padding:3px;flex:none}
+.id-gold-stripe{height:3px;background:linear-gradient(90deg,#fbbf24,#f59e0b,#fbbf24);flex:none}
+.id-student-body{padding:10px 14px;display:flex;gap:12px;flex:1;min-height:0;align-items:flex-start}
+.id-student-body>.id-card-photo,.id-student-body>.id-photo-placeholder{width:86px;height:108px;flex:none}
+.id-photo-placeholder{display:grid;place-items:center;border:2px solid #065f46;border-radius:7px;background:#ecfdf5;color:#065f46;font-size:22px;font-weight:900}
+.id-card-info .id-number{color:#065f46;font-family:monospace}
+.id-student-pair{display:flex;gap:20px}
+.id-qr-column{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;flex:none}
+.id-qr-column img{width:58px;height:58px}
+.id-qr-column small{font-size:6px;text-align:center;color:#64748b;font-weight:800}
+.student-back{font-family:Georgia,serif}
+.id-back-top{display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid #bbf7d0;padding-bottom:8px}
+.id-back-top>img:first-child{width:45px;height:45px;object-fit:contain}
+.id-back-top>img:nth-child(2){width:64px;height:64px;object-fit:contain}
+.id-back-top>div{margin-left:auto;text-align:right}
+.id-back-top strong{display:block;color:#065f46;font-size:10px}
+.id-back-top small{display:block;color:#64748b;font-size:8px}
+.id-back-copy{text-align:center;margin:12px 0;font-size:10px;line-height:1.5}
+.id-back-copy strong{display:block;color:#065f46;margin-top:4px}
+.id-card-back p{font-size:10px;line-height:1.5}
+.id-authorised-sign{text-align:center;margin-top:22px;color:#1e3a8a;font-family:cursive;font-size:16px}
+.id-authorised-sign div{border-top:1px solid #0f172a;width:115px;margin:4px auto 0;padding-top:3px;color:#475569;font:700 7px Arial}
+.staff-card-head{background:linear-gradient(120deg,#065f46,#059669);padding:12px 16px;color:#fff;display:flex;align-items:center;gap:12px}
+.staff-card-head>img{width:44px;height:44px;object-fit:contain;background:#fff;border:2px solid #fbbf24;border-radius:50%;padding:3px;flex:none}
+.staff-card-head strong{display:block;font-size:12px;letter-spacing:.5px}
+.staff-card-head small{display:block;font-size:8px;color:#fef08a;font-weight:800;letter-spacing:1px;margin-top:3px}
+.staff-card-body{display:flex;gap:12px;padding:11px 14px;flex:1;min-height:0;align-items:flex-start}
+.staff-card-body>.id-card-photo,.staff-card-body>.id-photo-placeholder{width:88px;height:112px;flex:none}
+.staff-fields{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;min-width:0;flex:1}
+.staff-fields small{display:block;font-size:7px;color:#64748b;font-weight:800;text-transform:uppercase}
+.staff-fields strong{display:block;font-size:9px;color:#0f172a;line-height:1.2;overflow-wrap:anywhere}
+.staff-qr{width:58px;height:58px;object-fit:contain;align-self:flex-end;flex:none}
+.staff-back{font-family:Georgia,serif}
+.staff-back .id-back-top{justify-content:space-between}
+.staff-back .id-back-top>div{margin:0;text-align:left;align-self:center;flex:1}
+.id-registry-sign{margin:26px 0 0 auto;width:145px;text-align:right;border-top:1px solid #0f172a;padding-top:4px;font:800 9px Arial}
+.id-card-status{text-align:center;color:#64748b;font-size:11px;margin-top:8px}
+@media(max-width:600px){.staff-fields{gap:3px 6px}.staff-fields strong{font-size:7px}.staff-card-body>.id-card-photo,.staff-card-body>.id-photo-placeholder{width:66px;height:88px}.staff-qr{width:44px;height:44px}}
+
 </style>
 <div class="id-tabs" id="ic-tabs">
   <button class="id-tab active" data-role="all">All Cards</button>
@@ -73,12 +114,24 @@ function render(){
  $('ic-list').querySelectorAll('[data-id]').forEach(el=>el.addEventListener('click',()=>{SELECTED=ALL.find(x=>String(x.id)===el.dataset.id)||null;render();renderPreview()}));
 }
 function renderPreview(){
- const r=SELECTED;if(!r){$('ic-preview').innerHTML='<div style="padding:3rem 1rem;text-align:center;color:#64748b">Select a person to preview their card.</div>';$('ic-print').disabled=true;return}
- const student=r.role==='student',name=fullName(r),identity=student?(r.matricNumber||'—'):(r.staffNumber||'FPU/'+String(r.role).toUpperCase()+'/'+String(r.id).padStart(5,'0'));
+ const r=SELECTED;
+ if(!r){$('ic-preview').innerHTML='<div style="padding:3rem 1rem;text-align:center;color:#64748b">Select a person to preview their card.</div>';$('ic-print').disabled=true;return}
+ const student=r.role==='student',name=fullName(r)||'—',identity=student?(r.matricNumber||'—'):(r.staffNumber||'FPU/'+String(r.role).toUpperCase()+'/'+String(r.id).padStart(5,'0'));
  const photo=r.photoUrl||r.profilePhotoUrl||'',dept=r.departmentName||'Not assigned';
- const qr=student&&r.matricNumber?'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(window.location.origin+'/verify.html?id='+r.matricNumber):(!student&&r.staffNumber?'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(['FEDERAL POLYTECHNIC UGEP','OFFICIAL STAFF IDENTIFICATION','Name: '+name,'Staff Number: '+r.staffNumber,'Rank: '+(r.rank||roles[r.role]||r.role),'Department: '+dept].join(' | ')):'');
- const fields=student?'<small>Level</small><strong>'+esc(r.level||'—')+'</strong><small>Programme</small><strong>'+esc(r.programmeName||'—')+'</strong><small>Department</small><strong>'+esc(dept)+'</strong><small>Academic session</small><strong>'+esc(r.sessionName||'Current session')+'</strong>':'<small>Designation</small><strong>'+esc(r.rank||roles[r.role]||r.role)+'</strong><small>Qualification</small><strong>'+esc(r.qualification||'—')+'</strong><small>Specialization</small><strong>'+esc(r.specialization||'—')+'</strong><small>Department</small><strong>'+esc(dept)+'</strong>';
- $('ic-preview').innerHTML='<div class="id-card-preview '+(student?'student-card':'')+'"><div class="id-card-top"><img src="/images/logo.png" alt="FPU"/><div><div style="font-size:10px;font-weight:900;letter-spacing:.5px">FEDERAL POLYTECHNIC UGEP</div><div style="font-size:8px;color:#fef3c7;font-weight:700">'+esc((roles[r.role]||r.role).toUpperCase())+' IDENTIFICATION CARD</div></div></div><div style="height:3px;background:linear-gradient(90deg,#fbbf24,#f59e0b,#fbbf24)"></div><div class="id-card-content"><img class="id-card-photo" src="'+esc(photo)+'" onerror="this.style.display=\'none\'" alt="Portrait"/><div class="id-card-info"><small>Full name</small><strong>'+esc(name)+'</strong><small>'+(student?'Matriculation number':'Staff number')+'</small><strong>'+esc(identity)+'</strong>'+fields+'<small>Email</small><strong>'+esc(r.email||'—')+'</strong><small>Phone</small><strong>'+esc(r.phone||'—')+'</strong></div>'+(qr?'<img src="'+esc(qr)+'" alt="Verification QR" style="width:48px;height:48px;align-self:flex-end">':'')+'</div><div class="id-card-bottom"><span>OFFICIAL '+(student?'STUDENT':'STAFF')+' ID</span><span>'+esc(identity)+'</span></div></div><div class="id-card-back"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #bbf7d0;padding-bottom:8px"><div style="font-weight:900;color:#065f46;text-align:center;flex:1;padding-top:8px">FEDERAL POLYTECHNIC UGEP · '+(student?'STUDENT':'STAFF')+' IDENTIFICATION</div>'+(qr?'<img src="'+esc(qr)+'" alt="ID verification QR" style="width:62px;height:62px;object-fit:contain;flex:none">':'')+'</div><p>This card remains the property of Federal Polytechnic Ugep and is issued only to the person whose photograph and particulars appear on the front.</p><p>Department: <strong>'+esc(dept)+'</strong><br>Institution: Federal Polytechnic Ugep, Ugep, Cross River State, Nigeria.</p><div style="text-align:center;font-size:9px;color:#64748b;margin-top:12px">If found, kindly return to the Registry, Federal Polytechnic Ugep.</div><div style="text-align:right;border-top:1px solid #0f172a;width:150px;margin:22px 0 0 auto;padding-top:4px;font-size:9px;font-weight:800">Authorised Registry</div></div><div style="font-size:11px;color:#64748b;text-align:center;margin-top:8px">Status: '+(r.isActive?'Active':'Inactive')+' · '+esc(r.schoolName||'Federal Polytechnic Ugep')+'</div>';
+ const verifyData=student?(window.location.origin+'/verify.html?id='+encodeURIComponent(r.matricNumber||'')):['FEDERAL POLYTECHNIC UGEP','STAFF ID VERIFICATION','Name: '+name,'Staff Number: '+identity,'Role: '+(r.rank||roles[r.role]||r.role),'Department: '+dept].join(' | ');
+ const qr='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data='+encodeURIComponent(verifyData)+'&color=065f46&bgcolor=ffffff&margin=1';
+ const photoMarkup=photo?'<img class="id-card-photo" src="'+esc(photo)+'" alt="User photograph" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><div class="id-photo-placeholder" style="display:none">'+esc(name.split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase())+'</div>':'<div class="id-photo-placeholder">'+esc(name.split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase())+'</div>';
+ const logo='<img src="/images/logo.png" alt="FPU logo" onerror="this.style.display=\'none\'">';
+ let front='',back='';
+ if(student){
+   front='<div class="id-card-preview student-card"><div class="id-card-top">'+logo+'<div><div style="font-size:13px;font-weight:900;letter-spacing:.5px">FEDERAL POLYTECHNIC UGEP</div><div style="font-size:8px;color:#fef08a;letter-spacing:1px;font-weight:700">CROSS RIVER STATE</div></div></div><div class="id-gold-stripe"></div><div class="id-student-body">'+photoMarkup+'<div class="id-card-info"><small>Student Name</small><strong>'+esc(name)+'</strong><small>Matric Number</small><strong class="id-number">'+esc(identity)+'</strong><div class="id-student-pair"><div><small>Level</small><strong>'+esc(r.level||'—')+'</strong></div><div><small>Session</small><strong>'+esc(r.sessionName||'—')+'</strong></div></div><small>Programme</small><strong>'+esc(r.programmeName||'—')+'</strong><small>Department</small><strong>'+esc(dept)+'</strong></div><div class="id-qr-column"><img src="'+qr+'" alt="Scan to verify"><small>SCAN TO<br>VERIFY</small></div></div><div class="id-card-bottom"><span>OFFICIAL STUDENT ID</span><span>FEDPOLYUGEB</span></div></div>';
+   back='<div class="id-card-back student-back"><div class="id-back-top">'+logo+'<img src="'+qr+'" alt="Student verification QR"><div><strong>FEDERAL POLYTECHNIC, UGEP</strong><small>Cross River State</small></div></div><div class="id-back-copy">The person whose photograph appears overleaf is a Student of the above Mentioned<br><strong>FEDERAL POLYTECHNIC, UGEP</strong></div><p>If found, please return to the nearest police station OR contact the institution.<br>Email: <strong>contact@fedpolyugep.edu.ng</strong></p><div class="id-authorised-sign">Fed Poly<div>Authorized Signature</div></div></div>';
+ }else{
+   const role=(roles[r.role]||r.role||'STAFF').toUpperCase();
+   front='<div class="id-card-preview staff-card"><div class="staff-card-head">'+logo+'<div><strong>FEDERAL POLYTECHNIC UGEP</strong><small>'+esc(role)+' IDENTIFICATION CARD</small></div></div><div class="id-gold-stripe"></div><div class="staff-card-body">'+photoMarkup+'<div class="staff-fields"><div><small>Full name</small><strong>'+esc(name)+'</strong></div><div><small>Staff number</small><strong>'+esc(identity)+'</strong></div><div><small>Designation / Rank</small><strong>'+esc(r.rank||roles[r.role]||r.role)+'</strong></div><div><small>Department</small><strong>'+esc(dept)+'</strong></div><div><small>School</small><strong>'+esc(r.schoolName||'—')+'</strong></div><div><small>Qualification</small><strong>'+esc(r.qualification||'—')+'</strong></div><div><small>Specialization</small><strong>'+esc(r.specialization||'—')+'</strong></div><div><small>Email</small><strong>'+esc(r.email||'—')+'</strong></div><div><small>Phone</small><strong>'+esc(r.phone||'—')+'</strong></div></div><img class="staff-qr" src="'+qr+'" alt="Staff verification QR"></div><div class="id-card-bottom"><span>OFFICIAL STAFF IDENTIFICATION</span><span>FEDPOLYUGEB</span></div></div>';
+   back='<div class="id-card-back staff-back"><div class="id-back-top"><div><strong>FEDERAL POLYTECHNIC UGEP · STAFF IDENTIFICATION</strong><small>Cross River State, Nigeria</small></div><img src="'+qr+'" alt="Staff verification QR"></div><p>This card remains the property of Federal Polytechnic Ugep and is issued only to the staff member whose photograph and particulars appear on the front.</p><p>Department: <strong>'+esc(dept)+'</strong><br>Institution: Federal Polytechnic Ugep, Ugep, Cross River State, Nigeria.</p><div class="id-back-copy">If found, kindly return this card to the Registry, Federal Polytechnic Ugep.</div><div class="id-registry-sign">Authorised Registry</div></div>';
+ }
+ $('ic-preview').innerHTML=front+back+'<div class="id-card-status">Status: '+(r.isActive?'Active':'Inactive')+' · '+esc(r.schoolName||'Federal Polytechnic Ugep')+'</div>';
  $('ic-print').disabled=false;
 }
 $('ic-tabs').querySelectorAll('[data-role]').forEach(b=>b.addEventListener('click',()=>{FILTER=b.dataset.role;DEPARTMENT='';$('ic-tabs').querySelectorAll('.id-tab').forEach(x=>x.classList.toggle('active',x===b));renderDepartments();render()}));

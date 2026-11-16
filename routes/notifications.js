@@ -14,6 +14,15 @@ const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'registrar', 'rector', 'hod', 'bursar'];
 
+router.get('/unread-count', requireRole(STAFF), async (req, res, next) => {
+  try {
+    // Always count only the signed-in user's unread notifications,
+    // including institution-wide broadcasts.
+    const count = await notifQueries.countUnreadNotifications(req.user.id);
+    return res.json({ success: true, count });
+  } catch (err) { return next(err); }
+});
+
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     const { userId, limit = 200, offset = 0 } = req.query;

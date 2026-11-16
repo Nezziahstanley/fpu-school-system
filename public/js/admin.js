@@ -9668,51 +9668,86 @@ async function loadUserProfile() {
 async function loadUsersWithPhotos() {
   const container = document.getElementById('photos-grid');
   if (!container) return;
-
   container.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading directory…</div>';
 
   try {
-    // Fetch from all 3 working endpoints
     const [staffRes, studentRes, adminRes] = await Promise.all([
       adminFetch('/api/admin/staff?limit=500').catch(() => null),
       adminFetch('/api/admin/students?limit=500').catch(() => null),
       adminFetch('/api/admin/users?limit=500').catch(() => null),
     ]);
-
     let users = [];
     if (staffRes && staffRes.ok) users = users.concat((await staffRes.json()).data || []);
     if (studentRes && studentRes.ok) users = users.concat((await studentRes.json()).data || []);
     if (adminRes && adminRes.ok) users = users.concat((await adminRes.json()).data || []);
 
-    // Remove duplicates by id just in case
-    const uniqueUsers = Array.from(new Map(users.map(u => [u.id, u])).values());
+    const uniqueUsers = Array.from(new Map(users.filter(u => u && u.id != null).map(u => [String(u.id), u])).values());
+    const rankOf = u => String(u.staffProfile?.rank || u.rank || '').trim();
+    const roleOf = u => String(u.role || 'unknown').toLowerCase().replace(/_/g, ' ');
+    const rankOptions = [...new Set(uniqueUsers.map(rankOf).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+    const roleOptions = [...new Set(uniqueUsers.map(roleOf).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+    const rankSelect = document.getElementById('photos-rank-filter');
+    const roleSelect = document.getElementById('photos-role-filter');
 
-    if (!uniqueUsers.length) {
-      container.innerHTML = '<p class="muted" style="padding:20px;">No users found.</p>';
-      return;
+    if (rankSelect) {
+      const previous = rankSelect.value;
+      rankSelect.innerHTML = '<option value="">All ranks</option><option value="__unranked">Unranked / No rank</option>' +
+        rankOptions.map(rank => `<option value="${escapeHtml(rank)}">${escapeHtml(rank)}</option>`).join('');
+      if ([...rankSelect.options].some(o => o.value === previous)) rankSelect.value = previous;
+    }
+    if (roleSelect) {
+      const previous = roleSelect.value;
+      roleSelect.innerHTML = '<option value="">All user types</option>' +
+        roleOptions.map(role => `<option value="${escapeHtml(role)}">${escapeHtml(capitalize(role))}</option>`).join('');
+      if ([...roleSelect.options].some(o => o.value === previous)) roleSelect.value = previous;
     }
 
-    // Render the grid
-    container.innerHTML = uniqueUsers.map((u) => {
-      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
-      const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
-      
-      return `
-        <div class="person" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })" style="cursor:pointer;">
-          <div class="photo">
-            ${u.photoUrl ? `<img src="${escapeHtml(u.photoUrl)}" alt="" />` : escapeHtml(initials)}
-          </div>
-          <h4>${escapeHtml(fullName)}</h4>
-          <div class="role">${escapeHtml(String(u.role || '').replace(/_/g, ' '))}</div>
-        </div>
-      `;
-    }).join('');
+    const render = () => {
+      const selectedRank = rankSelect?.value || '';
+      const selectedRole = roleSelect?.value || '';
+      const search = String(document.getElementById('photos-search')?.value || '').trim().toLowerCase();
+      const filtered = uniqueUsers.filter(u => {
+        const rank = rankOf(u);
+        const role = roleOf(u);
+        const name = `${u.firstName || ''} ${u.middleName || ''} ${u.lastName || ''}`.trim().toLowerCase();
+        const matchesRank = !selectedRank || (selectedRank === '__unranked' ? !rank : rank.toLowerCase() === selectedRank.toLowerCase());
+        const matchesRole = !selectedRole || role === selectedRole;
+        const matchesSearch = !search || name.includes(search) || String(u.email || '').toLowerCase().includes(search) || String(u.matricNumber || '').toLowerCase().includes(search);
+        return matchesRank && matchesRole && matchesSearch;
+      });
+      const count = document.getElementById('photos-count');
+      if (count) count.textContent = `Showing ${filtered.length} of ${uniqueUsers.length} users`;
+      if (!filtered.length) {
+        container.innerHTML = '<p class="muted" style="padding:20px;grid-column:1/-1;">No users match the selected filters.</p>';
+        return;
+      }
+      container.innerHTML = filtered.map(u => {
+        const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
+        const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+        const rank = rankOf(u);
+        return `
+          <div class="person" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${Number(u.id)} })" style="cursor:pointer;">
+            <div class="photo">${u.photoUrl ? `<img src="${escapeHtml(u.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
+            <h4>${escapeHtml(fullName)}</h4>
+            <div class="role">${escapeHtml(roleOf(u))}</div>
+            ${rank ? `<div class="muted small" style="margin-top:4px;">${escapeHtml(rank)}</div>` : ''}
+          </div>`;
+      }).join('');
+    };
 
+    [rankSelect, roleSelect].forEach(el => {
+      if (el && !el.dataset.filterBound) { el.addEventListener('change', render); el.dataset.filterBound = '1'; }
+    });
+    const searchInput = document.getElementById('photos-search');
+    if (searchInput && !searchInput.dataset.filterBound) {
+      searchInput.addEventListener('input', render);
+      searchInput.dataset.filterBound = '1';
+    }
+    render();
   } catch (err) {
     container.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
   }
 }
-
 // ============================================
 // SETTINGS: Finance Tab (Bank Accounts & Payment Rules)
 // ============================================
@@ -15593,8 +15628,8 @@ async function approveDepartmentTimetable(departmentId, deptName, selectedSessio
     @media print {
       @page { size: A3 landscape; margin: 10mm; }
       body.printing-timetable * { visibility: hidden !important; }
-      body.printing-timetable .tt-sheet-printable, body.printing-timetable .tt-sheet-printable * { visibility: visible !important; }
-      body.printing-timetable .tt-sheet-printable { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; box-shadow: none !important; border: none !important; }
+      body.printing-timetable .tt-grid-sheet, body.printing-timetable .tt-grid-sheet * { visibility: visible !important; }
+      body.printing-timetable .tt-grid-sheet { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; box-shadow: none !important; border: none !important; }
       .no-print { display: none !important; }
     }
   `;
@@ -15907,6 +15942,45 @@ async function submitTimetableToAdmin() {
   }
 }
 
+function printAttendancePage() {
+  const view = document.getElementById('page-view');
+  if (!view || !view.children.length) {
+    showToast('Attendance report is not ready to print.', 'warning');
+    return;
+  }
+  document.body.classList.add('printing-attendance');
+  const cleanup = () => document.body.classList.remove('printing-attendance');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  window.print();
+  setTimeout(cleanup, 30000);
+}
+
+(function injectAttendancePrintCSS() {
+  const style = document.createElement('style');
+  style.textContent = `
+    @media print {
+      @page { size: A4 landscape; margin: 12mm; }
+      body.printing-attendance { background: #fff !important; }
+      body.printing-attendance .sidebar,
+      body.printing-attendance .topbar,
+      body.printing-attendance .admin-sidebar-scrim,
+      body.printing-attendance .toast-wrap,
+      body.printing-attendance .no-print,
+      body.printing-attendance .filters,
+      body.printing-attendance .actions { display: none !important; }
+      body.printing-attendance .main { margin: 0 !important; padding: 0 !important; }
+      body.printing-attendance #page-view { display: block !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      body.printing-attendance #page-view * { visibility: visible !important; }
+      body.printing-attendance .table-wrap { overflow: visible !important; }
+      body.printing-attendance table { width: 100% !important; border-collapse: collapse !important; }
+      body.printing-attendance th,
+      body.printing-attendance td { color: #111 !important; border: 1px solid #9ca3af !important; }
+      body.printing-attendance button { display: none !important; }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -15968,7 +16042,7 @@ window.FPU_ADMIN = {
   loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams, openExamSchoolDepartments,
 
     // Attendance
-  loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,
+  loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance, printAttendancePage,
   openDepartmentAttendanceModal, openCourseAttendanceModal, openAttendanceMarkModal, openStudentAttendanceModal,
 
   // Staff, HODs, Lecturers

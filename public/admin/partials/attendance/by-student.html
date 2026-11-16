@@ -10,6 +10,7 @@
     <p class="muted small" id="abs-subtitle">Loading…</p>
   </div>
   <div class="actions">
+    <button class="btn btn-outline btn-sm no-print" type="button" onclick="FPU_ADMIN.printAttendancePage()">🖨 Print Records</button>
     <button class="btn btn-outline btn-sm" id="abs-back" onclick="FPU_ADMIN.goBack('attendance')">← Back to Course</button>
     <button class="btn btn-outline btn-sm"
             onclick="FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: new URLSearchParams(window.location.hash.split('?')[1] || '').get('studentId') })">

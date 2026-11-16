@@ -320,6 +320,8 @@
       for (const card of cards) {
         card.click();
         await new Promise(r => setTimeout(r, 1500));
+        document.body.classList.add('printing-exam-sheet');
+        window.addEventListener('afterprint', () => document.body.classList.remove('printing-exam-sheet'), { once: true });
         window.print();
         await new Promise(r => setTimeout(r, 1000));
         history.back();

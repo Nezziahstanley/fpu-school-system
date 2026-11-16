@@ -3029,9 +3029,39 @@ function initTranscriptEvents() {
   }
 }
 
+function printTimetableOverview() {
+  document.body.classList.add('printing-timetable-overview');
+  const cleanup = () => document.body.classList.remove('printing-timetable-overview');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  window.print();
+  setTimeout(cleanup, 30000);
+}
+
+(function injectTimetableOverviewPrintCSS() {
+  const style = document.createElement('style');
+  style.textContent = `
+    @media print {
+      @page { size: A4 landscape; margin: 12mm; }
+      body.printing-timetable-overview .sidebar,
+      body.printing-timetable-overview .topbar,
+      body.printing-timetable-overview .admin-sidebar-scrim,
+      body.printing-timetable-overview .filters,
+      body.printing-timetable-overview .actions,
+      body.printing-timetable-overview button { display: none !important; }
+      body.printing-timetable-overview .main { margin: 0 !important; padding: 0 !important; }
+      body.printing-timetable-overview #page-view { display: block !important; width: 100% !important; padding: 0 !important; }
+      body.printing-timetable-overview #page-view * { visibility: visible !important; }
+      body.printing-timetable-overview .tt-dept-card { break-inside: avoid; box-shadow: none !important; }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
 async function loadTimetableIndex() {
   const grid = document.getElementById('tt-dept-grid');
   if (!grid) return;
+  const printAllBtn = document.getElementById('tt-print-all');
+  if (printAllBtn) printAllBtn.onclick = printTimetableOverview;
 
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
 
@@ -16035,7 +16065,7 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
-  loadTimetableIndex, loadTimetable, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData,
+  loadTimetableIndex, loadTimetable, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData, printTimetableOverview,
   approveDepartmentTimetable,
 
   // Exams

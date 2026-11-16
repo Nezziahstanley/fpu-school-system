@@ -75,7 +75,7 @@
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/>
           <path d="M10 21a2 2 0 0 0 4 0"/>
         </svg>
-        <span class="dot" id="pending-badge" style="display:none;">0</span>
+        <span class="dot" id="notification-badge" style="display:none;">0</span>
       </button>
 
       <div class="user-chip-wrap">
@@ -373,6 +373,28 @@
       // NOTIFICATIONS
       // ============================================================
       const notifBtn = document.getElementById('topbar-notifications');
+      const notifBadge = document.getElementById('notification-badge');
+
+      async function refreshUnreadNotificationCount() {
+        if (!notifBadge) return;
+        try {
+          const response = await fetch('/api/admin/notifications/unread-count', {
+            headers: { Authorization: 'Bearer ' + getToken() }
+          });
+          if (!response.ok) throw new Error('Could not load notification count');
+          const result = await response.json();
+          const count = Math.max(0, Number(result.count) || 0);
+          notifBadge.textContent = String(count);
+          notifBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+          if (notifBtn) notifBtn.setAttribute('aria-label', count + ' unread notifications');
+        } catch (error) {
+          // Keep the badge at zero rather than showing an unrelated dashboard metric.
+          notifBadge.textContent = '0';
+          notifBadge.style.display = 'none';
+          if (notifBtn) notifBtn.setAttribute('aria-label', 'Notifications');
+        }
+      }
+
       if (notifBtn) {
         notifBtn.addEventListener('click', function () {
           if (window.FPU_ADMIN_SPA && typeof window.FPU_ADMIN_SPA.navigateTo === 'function') {
@@ -380,6 +402,13 @@
           }
         });
       }
+
+      refreshUnreadNotificationCount();
+      window.addEventListener('focus', refreshUnreadNotificationCount);
+      window.addEventListener('fpu:notifications-updated', refreshUnreadNotificationCount);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) refreshUnreadNotificationCount();
+      });
     })();
   </script>
 </body>

@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 
 const { db, schema } = require('../db');
-const { eq, and, desc } = require('drizzle-orm');
+const { eq, and, desc, isNotNull } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
@@ -165,9 +165,23 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
     const escapeHtml = (value) => String(value == null ? '' : value)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    // Only use an active, saved electronic signature belonging to the relevant office.
+    // If more than one signed account is active for the same office, do not guess.
     const findActiveSigner = async (role) => {
-      const matches = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, role: users.role, signatureUrl: users.signatureUrl })
-        .from(users).where(and(eq(users.role, role), eq(users.isActive, true))).limit(2);
+      const matches = await db.select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        signatureUrl: users.signatureUrl,
+      })
+        .from(users)
+        .where(and(
+          eq(users.role, role),
+          eq(users.isActive, true),
+          isNotNull(users.signatureUrl)
+        ))
+        .limit(2);
       return matches.length === 1 ? matches[0] : null;
     };
     const registrarSigner = await findActiveSigner('registrar');

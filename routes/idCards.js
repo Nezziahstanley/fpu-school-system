@@ -16,6 +16,7 @@ router.get('/', requireRole(ACCESS), async (req, res, next) => {
     const allowed = ['student', 'lecturer', 'hod', 'bursar', 'registrar', 'rector', 'librarian', 'exam_officer', 'academic_officer', 'admission_officer', 'admin'];
     if (role && !allowed.includes(role)) return res.status(400).json({ success: false, error: 'Invalid card category.' });
     const rows = await db.select({
+      signatureUrl: users.signatureUrl,
       registrySignatureUrl: sql`(SELECT signature_url FROM users AS registry_signatory WHERE registry_signatory.role = 'registrar' AND registry_signatory.is_active = true AND registry_signatory.signature_url IS NOT NULL AND registry_signatory.signature_url <> '' ORDER BY registry_signatory.id ASC LIMIT 1)`,
       id: users.id, firstName: users.firstName, middleName: users.middleName, lastName: users.lastName,
       email: users.email, phone: users.phone, role: users.role, matricNumber: users.matricNumber,

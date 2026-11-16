@@ -135,6 +135,7 @@
     { key: 'users',            label: 'Users Hub',        icon: 'users' },
     { key: 'users-all',        label: 'All Users',        icon: 'users' },
     { key: 'users-admins',     label: 'Admin Accounts',   icon: 'shield' },
+    { key: 'admin-id-cards',   label: 'Admin ID Cards',    icon: 'users' },
     { key: 'users-with-photos', label: 'Photo Directory', icon: 'users' },
     { key: 'users-login-history', label: 'Login History', icon: 'clipboard' },
   ];

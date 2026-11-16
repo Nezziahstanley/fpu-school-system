@@ -13655,74 +13655,100 @@ async function publishAllApproved() {
 // ============================================
 // RESULTS: All Approved View
 // ============================================
+let approvedResultsCache = [];
+
+function showApprovedDepartmentResults(department) {
+  const root = document.getElementById('approved-results-root');
+  if (!root) return;
+  const rows = approvedResultsCache.filter((r) => {
+    const course = r.course || {};
+    const student = r.student || {};
+    const name = String(course.departmentName || course.department?.name || student.departmentName || student.department?.name || 'Department not specified').trim();
+    return name === department;
+  });
+  const tableRows = rows.map((r) => {
+    const student = r.student || {};
+    const course = r.course || {};
+    return `
+      <tr>
+        <td style="font-weight:600;color:#0f172a;">${escapeHtml([student.firstName, student.lastName].filter(Boolean).join(' ') || '—')}</td>
+        <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
+        <td><span style="color:#065f46;font-weight:700;">${escapeHtml(course.code || '—')}</span></td>
+        <td>${escapeHtml(course.title || course.name || '—')}</td>
+        <td style="font-weight:700;text-align:center;">${r.score ?? '—'}</td>
+        <td style="font-weight:700;text-align:center;">${escapeHtml(r.grade || '—')}</td>
+        <td><span class="badge badge-success">Approved</span></td>
+      </tr>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="actions" style="margin-bottom:18px;">
+      <button type="button" class="btn btn-outline btn-sm" id="approved-departments-back">← All Departments</button>
+    </div>
+    <section class="panel" style="border:1px solid #e2e8f0;">
+      <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div><h3 style="margin:0;">${escapeHtml(department)}</h3><span class="muted small">Approved student results for this department</span></div>
+        <span class="badge badge-success">${rows.length} result${rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="panel-body flush">
+        <div class="table-wrap">
+          <table class="table-admin">
+            <thead><tr><th>Student</th><th>Matric No</th><th>Course Code</th><th>Course</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </section>`;
+  const back = document.getElementById('approved-departments-back');
+  if (back) back.addEventListener('click', renderApprovedDepartmentCards);
+}
+
+function renderApprovedDepartmentCards() {
+  const root = document.getElementById('approved-results-root');
+  if (!root) return;
+  const groups = new Map();
+  approvedResultsCache.forEach((r) => {
+    const course = r.course || {};
+    const student = r.student || {};
+    const department = String(course.departmentName || course.department?.name || student.departmentName || student.department?.name || 'Department not specified').trim();
+    if (!groups.has(department)) groups.set(department, []);
+    groups.get(department).push(r);
+  });
+  const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  root.innerHTML = sortedGroups.length ? `
+    <div class="approved-department-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;">
+      ${sortedGroups.map(([department, rows]) => `
+        <button type="button" class="panel approved-department-card" data-approved-department="${escapeHtml(department)}" style="text-align:left;cursor:pointer;border:1px solid #dbe3ee;border-radius:12px;padding:20px;background:var(--panel-bg,#fff);color:inherit;transition:transform .15s ease,box-shadow .15s ease;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px;">
+            <span style="font-size:26px;">🏛️</span><span class="badge badge-success">${rows.length} result${rows.length === 1 ? '' : 's'}</span>
+          </div>
+          <h3 style="margin:0 0 8px;font-size:16px;">${escapeHtml(department)}</h3>
+          <span class="muted small">View approved student results →</span>
+        </button>`).join('')}
+    </div>` : '<div style="text-align:center;padding:48px 20px;color:#64748b;"><div style="font-size:32px;margin-bottom:10px;">📋</div><strong>No approved results found.</strong><p class="muted small">Approved results will appear here once approved.</p></div>';
+
+  root.querySelectorAll('[data-approved-department]').forEach((card) => {
+    card.addEventListener('click', () => showApprovedDepartmentResults(card.getAttribute('data-approved-department')));
+  });
+}
+
 async function loadApprovedResults() {
   const root = document.getElementById('approved-results-root');
   if (!root) return;
-
   root.innerHTML = '<div class="loading" style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading approved results...</div>';
-
   try {
     const res = await adminFetch('/api/admin/results?status=approved&limit=5000');
     if (!res.ok) throw new Error('Unable to load approved results.');
     const json = await res.json();
-    const results = Array.isArray(json.data) ? json.data : [];
-
+    approvedResultsCache = Array.isArray(json.data) ? json.data : [];
     const countEl = document.getElementById('appr-count');
-    if (countEl) countEl.textContent = `${results.length} approved results across departments`;
-
-    if (!results.length) {
-      root.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#64748b;"><div style="font-size:32px;margin-bottom:10px;">📋</div><strong>No approved results found.</strong><p class="muted small">Approved results will be grouped here by department.</p></div>';
-      return;
-    }
-
-    const groups = new Map();
-    results.forEach((r) => {
+    const departments = new Set(approvedResultsCache.map((r) => {
       const course = r.course || {};
       const student = r.student || {};
-      const department = String(
-        course.departmentName ||
-        course.department?.name ||
-        student.departmentName ||
-        student.department?.name ||
-        'Department not specified'
-      ).trim();
-      if (!groups.has(department)) groups.set(department, []);
-      groups.get(department).push(r);
-    });
-
-    const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    root.innerHTML = sortedGroups.map(([department, rows]) => {
-      const tableRows = rows.map((r) => {
-        const student = r.student || {};
-        const course = r.course || {};
-        return `
-          <tr>
-            <td style="font-weight:600;color:#0f172a;">${escapeHtml([student.firstName, student.lastName].filter(Boolean).join(' ') || '—')}</td>
-            <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
-            <td><span style="color:#065f46;font-weight:700;">${escapeHtml(course.code || '—')}</span></td>
-            <td>${escapeHtml(course.title || course.name || '—')}</td>
-            <td style="font-weight:700;text-align:center;">${r.score ?? '—'}</td>
-            <td style="font-weight:700;text-align:center;">${escapeHtml(r.grade || '—')}</td>
-            <td><span class="badge badge-success">Approved</span></td>
-          </tr>`;
-      }).join('');
-
-      return `
-        <section class="panel" style="margin-bottom:20px;border:1px solid #e2e8f0;">
-          <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div><h3 style="margin:0;">${escapeHtml(department)}</h3><span class="muted small">Approved student results</span></div>
-            <span class="badge badge-success">${rows.length} result${rows.length === 1 ? '' : 's'}</span>
-          </div>
-          <div class="panel-body flush">
-            <div class="table-wrap">
-              <table class="table-admin">
-                <thead><tr><th>Student</th><th>Matric No</th><th>Course Code</th><th>Course</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead>
-                <tbody>${tableRows}</tbody>
-              </table>
-            </div>
-          </div>
-        </section>`;
-    }).join('');
+      return String(course.departmentName || course.department?.name || student.departmentName || student.department?.name || 'Department not specified').trim();
+    }));
+    if (countEl) countEl.textContent = `${approvedResultsCache.length} approved results · ${departments.size} departments`;
+    renderApprovedDepartmentCards();
   } catch (err) {
     console.error('Failed to load approved results:', err);
     root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load approved results: ${escapeHtml(err.message)}</div>`;
@@ -16114,7 +16140,7 @@ window.FPU_ADMIN = {
   loadRegistrationStudents, loadCourseRegistrations, loadStudentRegistrations,
 
   // Results
-  loadResultsDashboard, loadResultDepartments, loadDepartmentResults, loadApprovedResults, toggleAllResults,
+  loadResultsDashboard, loadResultDepartments, loadDepartmentResults, loadApprovedResults, showApprovedDepartmentResults, toggleAllResults,
   toggleCourseResults, updateBulkBtnState, bulkResultAction, courseBulkAction, publishAllApproved,
 
   // Grade Scales

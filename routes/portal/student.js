@@ -759,6 +759,7 @@ router.get('/id-card', only, async (req, res, next) => {
     const [student] = await db
       .select({
         id: users.id,
+        registrySignatureUrl: sql`(SELECT signature_url FROM users AS registry_signatory WHERE registry_signatory.role = 'registrar' AND registry_signatory.is_active = true AND registry_signatory.signature_url IS NOT NULL AND registry_signatory.signature_url <> '' ORDER BY registry_signatory.id ASC LIMIT 1)`,
         firstName: users.firstName,
         lastName: users.lastName,
         departmentId: users.departmentId,

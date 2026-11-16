@@ -9701,49 +9701,56 @@ async function loadUsersWithPhotos() {
   container.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading directory…</div>';
 
   try {
-    const [staffRes, studentRes, adminRes] = await Promise.all([
+    const [staffRes, studentRes, adminRes, deptRes] = await Promise.all([
       adminFetch('/api/admin/staff?limit=500').catch(() => null),
       adminFetch('/api/admin/students?limit=500').catch(() => null),
       adminFetch('/api/admin/users?limit=500').catch(() => null),
+      adminFetch('/api/admin/departments?limit=500').catch(() => null),
     ]);
     let users = [];
     if (staffRes && staffRes.ok) users = users.concat((await staffRes.json()).data || []);
     if (studentRes && studentRes.ok) users = users.concat((await studentRes.json()).data || []);
     if (adminRes && adminRes.ok) users = users.concat((await adminRes.json()).data || []);
+    const departments = deptRes && deptRes.ok ? ((await deptRes.json()).data || []) : [];
 
     const uniqueUsers = Array.from(new Map(users.filter(u => u && u.id != null).map(u => [String(u.id), u])).values());
     const rankOf = u => String(u.staffProfile?.rank || u.rank || '').trim();
     const roleOf = u => String(u.role || 'unknown').toLowerCase().replace(/_/g, ' ');
+    const departmentIdOf = u => Number(u.departmentId || u.department?.id || 0);
+    const departmentNameOf = u => String(u.departmentName || u.department?.name || departments.find(d => Number(d.id) === departmentIdOf(u))?.name || '').trim();
     const rankOptions = [...new Set(uniqueUsers.map(rankOf).filter(Boolean))].sort((a,b) => a.localeCompare(b));
     const roleOptions = [...new Set(uniqueUsers.map(roleOf).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+    const deptOptions = departments.length
+      ? departments.slice().sort((a,b) => String(a.name).localeCompare(String(b.name)))
+      : [...new Map(uniqueUsers.filter(u => departmentIdOf(u)).map(u => [departmentIdOf(u), { id: departmentIdOf(u), name: departmentNameOf(u) || ('Department ' + departmentIdOf(u)) }])).values()].sort((a,b) => String(a.name).localeCompare(String(b.name)));
+
     const rankSelect = document.getElementById('photos-rank-filter');
     const roleSelect = document.getElementById('photos-role-filter');
-
-    if (rankSelect) {
-      const previous = rankSelect.value;
-      rankSelect.innerHTML = '<option value="">All ranks</option><option value="__unranked">Unranked / No rank</option>' +
-        rankOptions.map(rank => `<option value="${escapeHtml(rank)}">${escapeHtml(rank)}</option>`).join('');
-      if ([...rankSelect.options].some(o => o.value === previous)) rankSelect.value = previous;
-    }
-    if (roleSelect) {
-      const previous = roleSelect.value;
-      roleSelect.innerHTML = '<option value="">All user types</option>' +
-        roleOptions.map(role => `<option value="${escapeHtml(role)}">${escapeHtml(capitalize(role))}</option>`).join('');
-      if ([...roleSelect.options].some(o => o.value === previous)) roleSelect.value = previous;
-    }
+    const deptSelect = document.getElementById('photos-department-filter');
+    const fillSelect = (select, firstLabel, options, getValue, getLabel) => {
+      if (!select) return;
+      const previous = select.value;
+      select.innerHTML = `<option value="">${firstLabel}</option>` + options.map(item => `<option value="${escapeHtml(getValue(item))}">${escapeHtml(getLabel(item))}</option>`).join('');
+      if ([...select.options].some(o => o.value === previous)) select.value = previous;
+    };
+    fillSelect(rankSelect, 'All ranks', rankOptions, x => x, x => x);
+    if (rankSelect) rankSelect.insertAdjacentHTML('beforeend', '<option value="__unranked">Unranked / No rank</option>');
+    fillSelect(roleSelect, 'All user types', roleOptions, x => x, x => capitalize(x));
+    fillSelect(deptSelect, 'All departments', deptOptions, x => String(x.id), x => x.name);
 
     const render = () => {
       const selectedRank = rankSelect?.value || '';
       const selectedRole = roleSelect?.value || '';
+      const selectedDept = deptSelect?.value || '';
       const search = String(document.getElementById('photos-search')?.value || '').trim().toLowerCase();
       const filtered = uniqueUsers.filter(u => {
-        const rank = rankOf(u);
-        const role = roleOf(u);
+        const rank = rankOf(u), role = roleOf(u), departmentId = departmentIdOf(u);
         const name = `${u.firstName || ''} ${u.middleName || ''} ${u.lastName || ''}`.trim().toLowerCase();
         const matchesRank = !selectedRank || (selectedRank === '__unranked' ? !rank : rank.toLowerCase() === selectedRank.toLowerCase());
         const matchesRole = !selectedRole || role === selectedRole;
+        const matchesDept = !selectedDept || departmentId === Number(selectedDept);
         const matchesSearch = !search || name.includes(search) || String(u.email || '').toLowerCase().includes(search) || String(u.matricNumber || '').toLowerCase().includes(search);
-        return matchesRank && matchesRole && matchesSearch;
+        return matchesRank && matchesRole && matchesDept && matchesSearch;
       });
       const count = document.getElementById('photos-count');
       if (count) count.textContent = `Showing ${filtered.length} of ${uniqueUsers.length} users`;
@@ -9754,18 +9761,19 @@ async function loadUsersWithPhotos() {
       container.innerHTML = filtered.map(u => {
         const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
         const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
-        const rank = rankOf(u);
+        const rank = rankOf(u), department = departmentNameOf(u);
         return `
           <div class="person" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${Number(u.id)} })" style="cursor:pointer;">
             <div class="photo">${u.photoUrl ? `<img src="${escapeHtml(u.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
             <h4>${escapeHtml(fullName)}</h4>
             <div class="role">${escapeHtml(roleOf(u))}</div>
             ${rank ? `<div class="muted small" style="margin-top:4px;">${escapeHtml(rank)}</div>` : ''}
+            ${department ? `<div class="muted small">${escapeHtml(department)}</div>` : ''}
           </div>`;
       }).join('');
     };
 
-    [rankSelect, roleSelect].forEach(el => {
+    [rankSelect, roleSelect, deptSelect].forEach(el => {
       if (el && !el.dataset.filterBound) { el.addEventListener('change', render); el.dataset.filterBound = '1'; }
     });
     const searchInput = document.getElementById('photos-search');
@@ -12857,6 +12865,40 @@ async function exportSecurityReport() {
     showToast('❌ ' + (err.message || 'Security report export failed.'), 'error');
   }
 }
+
+(function installAdminPrintPaperSizing() {
+  if (window.__fpuAdminPrintSizingInstalled) return;
+  window.__fpuAdminPrintSizingInstalled = true;
+  const nativePrint = window.print.bind(window);
+  let style = document.getElementById('fpu-admin-dynamic-page-size');
+  if (!style) { style = document.createElement('style'); style.id = 'fpu-admin-dynamic-page-size'; document.head.appendChild(style); }
+  window.print = function () {
+    const body = document.body;
+    const has = name => body.classList.contains(name);
+    let size = body.dataset.printSize || '';
+    let orientation = body.dataset.printOrientation || '';
+    const marked = document.querySelector('[data-print-size], .tt-grid-sheet, .ex-sheet, .tx-document');
+    if (!size && marked?.dataset.printSize) size = marked.dataset.printSize;
+    if (!orientation && marked?.dataset.printOrientation) orientation = marked.dataset.printOrientation;
+    if (!size || !orientation) {
+      if (has('printing-timetable')) { size = size || 'A3'; orientation = orientation || 'landscape'; }
+      else if (has('printing-exam-sheet')) { size = size || 'A4'; orientation = orientation || 'landscape'; }
+      else if (has('printing-attendance') || has('printing-timetable-overview')) { size = size || 'A4'; orientation = orientation || 'landscape'; }
+      else if (has('printing-transcript')) { size = size || 'A4'; orientation = orientation || 'portrait'; }
+    }
+    if (!size) {
+      const table = document.querySelector('#page-view table, .main table, .tx-document table');
+      const columns = table?.querySelector('thead tr')?.children?.length || 0;
+      size = columns >= 8 ? 'A3' : 'A4';
+      orientation = orientation || (columns >= 5 ? 'landscape' : 'portrait');
+    }
+    size = /^A3$/i.test(size) ? 'A3' : 'A4';
+    orientation = /^landscape$/i.test(orientation) ? 'landscape' : 'portrait';
+    const margin = body.dataset.printMargin || (size === 'A3' ? '10mm' : '12mm');
+    style.textContent = `@media print { @page { size: ${size} ${orientation}; margin: ${margin}; } }`;
+    return nativePrint();
+  };
+})();
 
 window.FPU_ADMIN = {
   // ... existing functions

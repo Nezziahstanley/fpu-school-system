@@ -315,6 +315,40 @@
   }
 
   // ----------------------------------------------------------
+  // Shared adaptive printing for every role-based portal dashboard
+  // ----------------------------------------------------------
+  (function installPortalPrintPaperSizing() {
+    if (window.__fpuPortalPrintSizingInstalled) return;
+    window.__fpuPortalPrintSizingInstalled = true;
+    const nativePrint = window.print.bind(window);
+    let style = document.getElementById('fpu-portal-dynamic-page-size');
+    if (!style) { style = document.createElement('style'); style.id = 'fpu-portal-dynamic-page-size'; document.head.appendChild(style); }
+    window.print = function () {
+      const body = document.body;
+      let size = body.dataset.printSize || '';
+      let orientation = body.dataset.printOrientation || '';
+      const marked = document.querySelector('[data-print-size], [data-print-orientation], .tx-document, .id-card, .tt-grid-sheet, .exam-sheet-table');
+      if (!size && marked?.dataset.printSize) size = marked.dataset.printSize;
+      if (!orientation && marked?.dataset.printOrientation) orientation = marked.dataset.printOrientation;
+      if (!size) {
+        if (document.querySelector('.tt-grid-sheet, .exam-sheet-table')) { size = 'A3'; orientation = orientation || 'landscape'; }
+        else if (document.querySelector('.tx-document, .id-card')) { size = 'A4'; orientation = orientation || 'portrait'; }
+        else {
+          const table = document.querySelector('#page-view table');
+          const columns = table?.querySelector('thead tr')?.children?.length || 0;
+          size = columns >= 8 ? 'A3' : 'A4';
+          orientation = orientation || (columns >= 5 ? 'landscape' : 'portrait');
+        }
+      }
+      size = /^A3$/i.test(size) ? 'A3' : 'A4';
+      orientation = /^landscape$/i.test(orientation) ? 'landscape' : 'portrait';
+      const margin = body.dataset.printMargin || (size === 'A3' ? '10mm' : '12mm');
+      style.textContent = `@media print { @page { size: ${size} ${orientation}; margin: ${margin}; } }`;
+      return nativePrint();
+    };
+  })();
+
+  // ----------------------------------------------------------
   // Public API
   // ----------------------------------------------------------
   window.FPU_PORTAL = {

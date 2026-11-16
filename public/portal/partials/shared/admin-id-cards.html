@@ -52,7 +52,7 @@
 (function(){
 'use strict';
 const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id),esc=s=>core.escapeHtml?core.escapeHtml(s):String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const portalFetch=core.portalFetch||async(url,options={})=>{const token=localStorage.getItem('fpu_admin_token')||localStorage.getItem('portal_token');const response=await fetch(url,{...options,headers:{...(options.headers||{}),...(token?{Authorization:'Bearer '+token}:{})}});const payload=await response.json().catch(()=>({message:'Invalid server response'}));if(!response.ok)throw new Error(payload.message||payload.error||('Request failed ('+response.status+')'));return payload;};
+const portalFetch=core.portalFetch||(async(url,options={})=>{const token=localStorage.getItem('fpu_admin_token')||localStorage.getItem('portal_token');const response=await fetch(url,{...options,headers:{...(options.headers||{}),...(token?{Authorization:'Bearer '+token}:{})}});const payload=await response.json().catch(()=>({message:'Invalid server response'}));if(!response.ok)throw new Error(payload.message||payload.error||('Request failed ('+response.status+')'));return payload;});
 let ALL=[],FILTER='all',DEPARTMENT='',SELECTED=null;
 const roles={student:'Student',lecturer:'Lecturer',hod:'Head of Department',bursar:'Bursar',registrar:'Registrar',rector:'Rector',librarian:'Librarian',exam_officer:'Examination Officer',academic_officer:'Academic Officer',admission_officer:'Admission Officer',admin:'Administrator'};
 const fullName=r=>[r.firstName,r.middleName,r.lastName].filter(Boolean).join(' ');

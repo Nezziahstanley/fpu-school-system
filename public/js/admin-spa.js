@@ -346,6 +346,7 @@
     'users':              { url: '/admin/partials/users/list.html',              title: 'Users',           init: call('loadUsersHub') },
     'users-all':          { url: '/admin/partials/users/all.html',               title: 'All Users',       init: call('loadAllUsers') },
     'users-admins':       { url: '/admin/partials/users/admins.html',            title: 'Admin Accounts',  init: call('loadAdminAccounts') },
+    'admin-id-cards':     { url: '/portal/partials/shared/admin-id-cards.html',      title: 'Admin ID Cards',   init: () => {} },
     'users-with-photos':  { url: '/admin/partials/users/with-photos.html',       title: 'Photo Directory', init: call('loadUsersWithPhotos') },
     'users-login-history':{ url: '/admin/partials/users/login-history.html',     title: 'Login History',   init: call('loadLoginHistory') },
     'user-form':          { url: '/admin/partials/users/form.html',              title: 'User Form',       init: () => {} },

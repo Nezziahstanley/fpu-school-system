@@ -13656,52 +13656,76 @@ async function publishAllApproved() {
 // RESULTS: All Approved View
 // ============================================
 async function loadApprovedResults() {
-  const tbody = document.getElementById('approved-tbody');
-  if (!tbody) return;
+  const root = document.getElementById('approved-results-root');
+  if (!root) return;
 
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading approved results...</td></tr>';
+  root.innerHTML = '<div class="loading" style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading approved results...</div>';
 
   try {
-    // Fetch only results with status 'approved'
     const res = await adminFetch('/api/admin/results?status=approved&limit=5000');
+    if (!res.ok) throw new Error('Unable to load approved results.');
     const json = await res.json();
-    const results = json.data || [];
+    const results = Array.isArray(json.data) ? json.data : [];
 
-    // Update count in header
-    if (document.getElementById('appr-count')) {
-      document.getElementById('appr-count').textContent = `${results.length} approved results`;
-    }
+    const countEl = document.getElementById('appr-count');
+    if (countEl) countEl.textContent = `${results.length} approved results across departments`;
 
     if (!results.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;">No approved results found.</td></tr>';
+      root.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#64748b;"><div style="font-size:32px;margin-bottom:10px;">📋</div><strong>No approved results found.</strong><p class="muted small">Approved results will be grouped here by department.</p></div>';
       return;
     }
 
-    // Render the table rows
-    tbody.innerHTML = results.map(r => {
-      const student = r.student || {};
+    const groups = new Map();
+    results.forEach((r) => {
       const course = r.course || {};
-      
-      return `
-        <tr>
-          <td style="font-weight:600; color:#0f172a;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
-          <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
-          <td>${escapeHtml(course.departmentName || '—')}</td>
-          <td><span style="color:#065f46; font-weight:700;">${escapeHtml(course.code || '—')}</span></td>
-          <td style="font-weight:700; text-align:center;">${r.score || '-'}</td>
-          <td style="font-weight:700; text-align:center;">${escapeHtml(r.grade || '-')}</td>
-          <td>
-            <span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">
-              Approved
-            </span>
-          </td>
-        </tr>
-      `;
-    }).join('');
+      const student = r.student || {};
+      const department = String(
+        course.departmentName ||
+        course.department?.name ||
+        student.departmentName ||
+        student.department?.name ||
+        'Department not specified'
+      ).trim();
+      if (!groups.has(department)) groups.set(department, []);
+      groups.get(department).push(r);
+    });
 
+    const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    root.innerHTML = sortedGroups.map(([department, rows]) => {
+      const tableRows = rows.map((r) => {
+        const student = r.student || {};
+        const course = r.course || {};
+        return `
+          <tr>
+            <td style="font-weight:600;color:#0f172a;">${escapeHtml([student.firstName, student.lastName].filter(Boolean).join(' ') || '—')}</td>
+            <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
+            <td><span style="color:#065f46;font-weight:700;">${escapeHtml(course.code || '—')}</span></td>
+            <td>${escapeHtml(course.title || course.name || '—')}</td>
+            <td style="font-weight:700;text-align:center;">${r.score ?? '—'}</td>
+            <td style="font-weight:700;text-align:center;">${escapeHtml(r.grade || '—')}</td>
+            <td><span class="badge badge-success">Approved</span></td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <section class="panel" style="margin-bottom:20px;border:1px solid #e2e8f0;">
+          <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div><h3 style="margin:0;">${escapeHtml(department)}</h3><span class="muted small">Approved student results</span></div>
+            <span class="badge badge-success">${rows.length} result${rows.length === 1 ? '' : 's'}</span>
+          </div>
+          <div class="panel-body flush">
+            <div class="table-wrap">
+              <table class="table-admin">
+                <thead><tr><th>Student</th><th>Matric No</th><th>Course Code</th><th>Course</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </section>`;
+    }).join('');
   } catch (err) {
     console.error('Failed to load approved results:', err);
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results: ${escapeHtml(err.message)}</td></tr>`;
+    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load approved results: ${escapeHtml(err.message)}</div>`;
   }
 }
 

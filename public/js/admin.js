@@ -381,12 +381,6 @@ async function loadDashboardStats() {
     setText("stat-clearances", s.pendingClearances);
     setText("stat-complaints", s.openComplaints);
     setText("stat-borrows", s.activeBorrows);
-    const badgeEl = document.getElementById("pending-badge");
-    if (badgeEl) {
-      const pending = s.pendingApplications || 0;
-      badgeEl.textContent = pending;
-      badgeEl.style.display = pending > 0 ? "inline-flex" : "none";
-    }
   } catch (err) { console.debug("[dashboard] stats:", err && err.message); }
 }
 

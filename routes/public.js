@@ -19,6 +19,7 @@ const courseQueries = require('../db/queries/courses');
 const settingsQueries = require('../db/queries/settings');
 const userQueries = require('../db/queries/users');
 const { sendApplicationReceived } = require('../utils/emailService');
+const { getUniqueSignedSignatory } = require('../utils/signatories');
 const { logSecurity } = require('../utils/audit');
 const geo = require('../config/geo');
 
@@ -317,13 +318,39 @@ router.get('/letters/:id', async (req, res, next) => {
     }
 
     const enriched = await appQueries.findByIdWithRelations(app.id);
-    
-    let letterType = req.query.type || 'provisional';
-    if (!req.query.type) {
+
+    const allowedLetterTypes = ['provisional', 'acceptance', 'matriculation', 'rejection'];
+    let letterType = String(req.query.type || '').toLowerCase();
+    if (!letterType) {
       if (app.status === 'matriculated') letterType = 'matriculation';
       else if (app.status === 'rejected') letterType = 'rejection';
       else if (app.status === 'registered') letterType = 'acceptance';
+      else letterType = 'provisional';
     }
+    if (!allowedLetterTypes.includes(letterType)) {
+      return res.status(400).send('Invalid letter type.');
+    }
+
+    const signatoryRoleByLetter = {
+      provisional: 'admission_officer',
+      acceptance: 'bursar',
+      matriculation: 'registrar',
+      rejection: 'admission_officer',
+    };
+    const signatoryResult = await getUniqueSignedSignatory(signatoryRoleByLetter[letterType]);
+    if (!signatoryResult.ok) {
+      return res.status(signatoryResult.status || 409).send(`
+        <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Letter not ready</title></head>
+        <body style="font-family:Arial,sans-serif;background:#f8fafc;padding:32px;color:#0f172a;">
+          <main style="max-width:620px;margin:8vh auto;background:#fff;padding:28px;border:1px solid #e2e8f0;border-radius:12px;">
+            <h2 style="color:#b45309;">This letter is not ready for issue</h2>
+            <p>${String(signatoryResult.error || 'The authorised signatory is not configured.').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</p>
+            <p>Please contact the Admissions Office or Registry to complete the authorised signature setup. No unsigned official letter has been generated.</p>
+          </main>
+        </body></html>
+      `);
+    }
+    const signatoryJson = JSON.stringify(signatoryResult.data).replace(/</g, '\\u003c');
 
     res.send(`
       <!DOCTYPE html>
@@ -345,8 +372,11 @@ router.get('/letters/:id', async (req, res, next) => {
         <button class="print-btn" onclick="window.print()">🖨 Download / Print PDF</button>
         
         <script>
-          window.FPU_CURRENT_APPLICANT = ${JSON.stringify(enriched)};
-          
+          window.FPU_CURRENT_APPLICANT = ${JSON.stringify(enriched).replace(/</g, '\\u003c')};
+          // Public emailed letters cannot depend on an authenticated staff session.
+          // The server resolves the unique active signatory and supplies its saved signature.
+          window.FPU_LETTER_SIGNATORY = ${signatoryJson};
+
           // Fetch the HTML template and inject it
           fetch('/portal/partials/admission-officer/letter-templates/${letterType}.html')
             .then(res => res.text())

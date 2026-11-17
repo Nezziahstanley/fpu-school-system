@@ -15,6 +15,9 @@ router.use('/admin/auth', require('./adminAuth'));
 router.use('/admin/seed', require('./adminSeed'));
 router.use('/', require('./public'));
 
+// Enforce fee clearance across every authenticated student API, including shared portal routes.
+router.use(require('../middleware/studentFeeGate').studentFeeGate);
+
 // ------------------------------------------------------------
 // Admin — lookups
 // ------------------------------------------------------------

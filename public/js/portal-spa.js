@@ -447,6 +447,8 @@
     return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
   }
 
+  let studentPaymentLocked = false;
+
   function renderSidebar(activeKey) {
     const user = core.getPortalUser && core.getPortalUser();
     if (!user) return;
@@ -455,8 +457,10 @@
     const container = document.getElementById('sidebar-nav');
     if (!container) return;
 
-    const roleItems = PORTAL_SIDEBAR[role] || [];
-    const sharedItems = getSharedItemsForRole(role).map((item) =>
+    const roleItems = (PORTAL_SIDEBAR[role] || []).filter((item) =>
+      role !== 'student' || !studentPaymentLocked || item.key === 'student-fees'
+    );
+    const sharedItems = (studentPaymentLocked && role === 'student' ? [] : getSharedItemsForRole(role)).map((item) =>
       role === 'hod' && item.key === 'portal-announcements'
         ? { ...item, label: 'Department Announcements' }
         : item
@@ -537,8 +541,24 @@
 
   async function loadPage(pageKey) {
     const requestId = ++activeLoadId;
-    lastRequestedPageKey = pageKey;
-    const cfg = resolvePageConfig(pageKey);
+    let effectivePageKey = pageKey;
+    const currentUser = core.getPortalUser && core.getPortalUser();
+
+    // Recheck the server-side fee balance on every student navigation. A
+    // successful bursar verification unlocks the portal without a new login.
+    if (currentUser && currentUser.role === 'student') {
+      try {
+        const gateResponse = await core.portalFetch('/api/student/access-status');
+        studentPaymentLocked = !!gateResponse?.data?.paymentRequired;
+        if (studentPaymentLocked) effectivePageKey = 'student-fees';
+      } catch (gateError) {
+        console.warn('[portal-spa] could not refresh student payment status:', gateError);
+      }
+    }
+    if (requestId !== activeLoadId) return;
+
+    lastRequestedPageKey = effectivePageKey;
+    const cfg = resolvePageConfig(effectivePageKey);
     if (!cfg) return;
 
     const view = document.getElementById('page-view');
@@ -552,8 +572,8 @@
     if (subtitleEl) subtitleEl.textContent = '';
 
     view.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-    renderSidebar(pageKey);
-    if (window.location.hash !== `#${pageKey}`) window.location.hash = `#${pageKey}`;
+    renderSidebar(effectivePageKey);
+    if (window.location.hash !== `#${effectivePageKey}`) window.location.hash = `#${effectivePageKey}`;
 
     try {
       let html = partialHtmlCache.get(cfg.url);

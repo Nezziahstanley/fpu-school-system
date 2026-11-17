@@ -50,6 +50,39 @@
     </div>
   </div>
 
+
+  <!-- PAYMENT CENTER -->
+  <div style="background:#fff;border:1px solid #dbeafe;border-radius:14px;padding:1rem;margin-bottom:1.25rem;">
+    <div style="font-weight:800;font-size:1rem;color:#0f172a;margin-bottom:.25rem;">Make a Payment</div>
+    <div style="font-size:.8rem;color:#64748b;margin-bottom:1rem;">Pay online with Paystack or submit a bank transfer for Bursar confirmation.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+      <form id="paystack-form" style="border:1px solid #e2e8f0;border-radius:10px;padding:1rem;">
+        <div style="font-weight:800;color:#065f46;margin-bottom:.6rem;">Online Payment</div>
+        <label for="online-amount" style="display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.3rem;">Amount (₦)</label>
+        <input id="online-amount" type="number" min="1" step="0.01" required style="width:100%;padding:.65rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.75rem;">
+        <button id="online-pay-btn" type="submit" style="width:100%;padding:.7rem;background:#065f46;color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer;">Continue to Paystack</button>
+        <div id="paystack-note" style="font-size:.72rem;color:#64748b;margin-top:.6rem;">Secure checkout. Payment is confirmed by the school system after Paystack verification.</div>
+      </form>
+      <form id="bank-transfer-form" style="border:1px solid #e2e8f0;border-radius:10px;padding:1rem;" enctype="multipart/form-data">
+        <div style="font-weight:800;color:#065f46;margin-bottom:.6rem;">Bank Transfer</div>
+        <div id="approved-bank-accounts" style="font-size:.78rem;color:#334155;margin-bottom:.8rem;">Loading approved payment accounts…</div>
+        <label for="transfer-amount" style="display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.3rem;">Amount (₦)</label>
+        <input id="transfer-amount" name="amount" type="number" min="1" step="0.01" required style="width:100%;padding:.6rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.6rem;">
+        <label for="transfer-bank" style="display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.3rem;">Bank transferred from</label>
+        <input id="transfer-bank" name="bankName" maxlength="120" required placeholder="Your bank name" style="width:100%;padding:.6rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.6rem;">
+        <label for="transfer-depositor" style="display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.3rem;">Depositor name</label>
+        <input id="transfer-depositor" name="depositorName" maxlength="200" required placeholder="Name on transfer" style="width:100%;padding:.6rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.6rem;">
+        <label for="transfer-date" style="display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.3rem;">Transfer date</label>
+        <input id="transfer-date" name="depositDate" type="date" required style="width:100%;padding:.6rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.6rem;">
+        <label for="transfer-receipt" style="display:block;font-size:.75rem;font-weight:700;color:#475569;margin-bottom:.3rem;">Upload transfer receipt</label>
+        <input id="transfer-receipt" name="receipt" type="file" accept="image/*,.pdf" required style="width:100%;font-size:.75rem;margin-bottom:.8rem;">
+        <button id="transfer-submit-btn" type="submit" style="width:100%;padding:.7rem;background:#1e40af;color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer;">Submit for Bursar Verification</button>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.6rem;">Your transfer remains pending until the Bursar verifies the payment and receipt.</div>
+      </form>
+    </div>
+    <div id="payment-feedback" role="status" style="display:none;margin-top:.8rem;padding:.7rem;border-radius:8px;font-size:.8rem;"></div>
+  </div>
+
   <!-- PAYMENT HISTORY -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
@@ -292,9 +325,100 @@
     w.document.close();
   }
 
+
+  function paymentMessage(message, type) {
+    const box = $('payment-feedback');
+    if (!box) return;
+    box.style.display = 'block';
+    box.style.background = type === 'error' ? '#fee2e2' : '#dcfce7';
+    box.style.color = type === 'error' ? '#991b1b' : '#166534';
+    box.textContent = message;
+  }
+
+  async function loadPaymentOptions() {
+    try {
+      const result = await core.portalFetch('/api/student/payment-options');
+      const accounts = result.data?.bankAccounts || [];
+      $('approved-bank-accounts').innerHTML = accounts.length ? accounts.map((b) => `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.65rem;margin-bottom:.45rem;">
+          <div style="font-weight:800;color:#0f172a;">${esc(b.bank)}</div>
+          <div>Account name: <strong>${esc(b.accountName)}</strong></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">Account number: <strong style="font-size:1rem;letter-spacing:.04em;">${esc(b.accountNumber)}</strong>
+          <button type="button" class="copy-bank-account" data-account="${esc(b.accountNumber)}" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:.25rem .5rem;cursor:pointer;">Copy</button></div>
+        </div>`).join('') : '<div style="color:#991b1b;">No approved bank account is currently available. Contact the Bursary.</div>';
+      $('approved-bank-accounts').querySelectorAll('.copy-bank-account').forEach((btn) => btn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(btn.dataset.account); paymentMessage('Account number copied.', 'success'); }
+        catch { paymentMessage('Please copy the account number manually.', 'error'); }
+      }));
+      if (!result.data?.paystackEnabled) {
+        $('online-pay-btn').disabled = true;
+        $('online-pay-btn').textContent = 'Online payment not configured';
+        $('online-pay-btn').style.opacity = '.55';
+        $('paystack-note').textContent = 'Paystack will become available after the secret key is added to the Render environment.';
+      }
+    } catch (err) {
+      $('approved-bank-accounts').textContent = err.message || 'Unable to load bank details.';
+    }
+  }
+
+  $('paystack-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const amount = Number($('online-amount').value);
+    if (!amount || amount <= 0) return paymentMessage('Enter a valid payment amount.', 'error');
+    const btn = $('online-pay-btn');
+    btn.disabled = true; btn.textContent = 'Connecting to Paystack…';
+    try {
+      const result = await core.portalFetch('/api/student/payments/paystack/initialize', { method: 'POST', body: { amount } });
+      if (!result.data?.authorizationUrl) throw new Error('Paystack did not return a checkout link.');
+      window.location.assign(result.data.authorizationUrl);
+    } catch (err) {
+      paymentMessage(err.message || 'Unable to start online payment.', 'error');
+      btn.disabled = false; btn.textContent = 'Continue to Paystack';
+    }
+  });
+
+  $('bank-transfer-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = $('bank-transfer-form');
+    const amount = Number($('transfer-amount').value);
+    if (!amount || amount <= 0) return paymentMessage('Enter a valid transfer amount.', 'error');
+    const file = $('transfer-receipt').files?.[0];
+    if (!file) return paymentMessage('Please upload your transfer receipt.', 'error');
+    if (file.size > 5 * 1024 * 1024) return paymentMessage('Receipt must not exceed 5 MB.', 'error');
+    const btn = $('transfer-submit-btn');
+    btn.disabled = true; btn.textContent = 'Submitting transfer…';
+    try {
+      const result = await core.portalFetch('/api/student/payments/bank-transfer', { method: 'POST', body: new FormData(form) });
+      paymentMessage('Transfer submitted. Reference: ' + result.data.reference + '. It will count as paid after Bursar verification.', 'success');
+      form.reset();
+      await load();
+    } catch (err) {
+      paymentMessage(err.message || 'Unable to submit bank transfer.', 'error');
+    } finally { btn.disabled = false; btn.textContent = 'Submit for Bursar Verification'; }
+  });
+
+  async function verifyPaystackReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const reference = params.get('reference') || params.get('trxref');
+    if (!reference || !reference.startsWith('FPU-PS-')) return;
+    paymentMessage('Verifying your Paystack transaction…', 'success');
+    try {
+      await core.portalFetch('/api/student/payments/paystack/verify', { method: 'POST', body: { reference } });
+      paymentMessage('Payment successfully verified. Your fee balance has been updated.', 'success');
+      params.delete('reference'); params.delete('trxref');
+      const query = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+      await load();
+    } catch (err) {
+      paymentMessage(err.message || 'Payment is not yet verified. Refresh this page to check again.', 'error');
+    }
+  }
+
   $('fee-refresh')?.addEventListener('click', load);
   $('fee-print')?.addEventListener('click', printReceipt);
 
   load();
+  loadPaymentOptions();
+  verifyPaystackReturn();
 })();
 </script>

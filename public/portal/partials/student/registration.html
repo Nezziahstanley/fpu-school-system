@@ -256,7 +256,10 @@
       $('registration-level-note').textContent = STUDENT_LEVEL
         ? 'Your registered level is ' + STUDENT_LEVEL + '. You can view other levels, but registration is limited to your assigned level.'
         : 'Your academic level could not be confirmed. Please contact the Registry.';
-      ALL_AVAILABLE = response.data || [];
+      const selectedLevel = $('filter-level').value || STUDENT_LEVEL;
+      const selectedSemester = $('filter-semester').value || 'first';
+      const filtered = await core.portalFetch('/api/student/available-courses?level=' + encodeURIComponent(selectedLevel) + '&semester=' + encodeURIComponent(selectedSemester));
+      ALL_AVAILABLE = filtered.data || [];
       renderAvailableCourses();
     } catch (err) {
       grid.innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#991b1b;">Unable to load courses: ${esc(err.message)}</div>`;
@@ -299,8 +302,8 @@
     renderAvailableCourses();
   }
 
-  $('filter-level')?.addEventListener('change', () => { selectedCourseIds.clear(); renderAvailableCourses(); });
-  $('filter-semester')?.addEventListener('change', () => { selectedCourseIds.clear(); renderAvailableCourses(); });
+  $('filter-level')?.addEventListener('change', () => { selectedCourseIds.clear(); loadAvailable(); });
+  $('filter-semester')?.addEventListener('change', () => { selectedCourseIds.clear(); loadAvailable(); });
   $('select-all-courses')?.addEventListener('click', () => {
     const level = $('filter-level').value;
     const semester = $('filter-semester').value;

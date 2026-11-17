@@ -386,10 +386,31 @@ router.get('/available-courses', only, async (req, res, next) => {
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
+    // Students may browse the course catalogue by level and semester, but
+    // registration itself remains restricted to their own assigned level/programme.
+    const requestedLevel = String(req.query.level || student.level || '').toUpperCase();
+    const requestedSemester = String(req.query.semester || '').toLowerCase();
+    if (!['ND', 'HND', 'CERT'].includes(requestedLevel)) {
+      return res.status(400).json({ success: false, error: 'Select a valid academic level.' });
+    }
+    if (requestedSemester && !['first', 'second'].includes(requestedSemester)) {
+      return res.status(400).json({ success: false, error: 'Select a valid semester.' });
+    }
+
+    const filters = [
+      eq(courses.departmentId, student.departmentId),
+      eq(courses.programmeId, student.programmeId),
+      eq(courses.level, requestedLevel),
+      eq(courses.isActive, true),
+    ];
+    if (requestedSemester) {
+      filters.push(eq(courses.semesterName, requestedSemester === 'first' ? 'First' : 'Second'));
+    }
+
     const rows = await db
       .select({ id: courses.id, code: courses.code, title: courses.title, unit: courses.unit, level: courses.level, semesterName: courses.semesterName })
       .from(courses)
-      .where(and(eq(courses.departmentId, student.departmentId), eq(courses.level, student.level)))
+      .where(and(...filters))
       .orderBy(courses.code);
 
     return res.json({ success: true, data: rows });
@@ -419,11 +440,25 @@ router.post('/register-course', only, async (req, res, next) => {
     const [course] = await db.select({
       id: courses.id,
       departmentId: courses.departmentId,
-      level: courses.level
+      programmeId: courses.programmeId,
+      level: courses.level,
+      semesterName: courses.semesterName
     }).from(courses).where(eq(courses.id, numericCourseId)).limit(1);
     if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
-    if (Number(course.departmentId) !== Number(student.departmentId) || String(course.level) !== String(student.level)) {
-      return res.status(403).json({ success: false, error: 'You can only register courses assigned to your department and level.' });
+    const courseSemester = String(course.semesterName || '').trim().toLowerCase();
+    const expectedSemester = normalizedSemester === 'first' ? 'first' : 'second';
+    if (
+      Number(course.departmentId) !== Number(student.departmentId) ||
+      Number(course.programmeId) !== Number(student.programmeId) ||
+      String(course.level) !== String(student.level)
+    ) {
+      return res.status(403).json({ success: false, error: 'You can only register courses assigned to your programme, department and current level.' });
+    }
+    if (!course.isActive && course.isActive !== undefined) {
+      return res.status(403).json({ success: false, error: 'This course is not currently available for registration.' });
+    }
+    if (!courseSemester.startsWith(expectedSemester)) {
+      return res.status(400).json({ success: false, error: 'This course is not assigned to the selected semester.' });
     }
 
     const [existing] = await db.select({ id: courseRegistrations.id })

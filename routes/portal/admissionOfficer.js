@@ -373,12 +373,21 @@ router.post('/applications/:id/approve', only, async (req, res, next) => {
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
     const updated = await appQueries.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
     
-    Promise.resolve()
-      .then(() => sendApplicationApproved(updated))
-      .catch((e) => console.error('[admission] approve email failed:', e?.message));
-      
-    await logAudit({ req, action: 'admission.approve', entity: 'application', entityId: app.id });
-    return res.json({ success: true, data: updated });
+    const emailResult = await sendApplicationApproved(updated).catch((e) => ({ ok: false, error: e.message }));
+    await logAudit({
+      req,
+      action: 'admission.approve',
+      entity: 'application',
+      entityId: app.id,
+      after: { status: 'approved', admissionEmailSent: !!emailResult.ok },
+    });
+    return res.json({
+      success: true,
+      data: updated,
+      emailSent: !!emailResult.ok,
+      emailError: emailResult.ok || emailResult.skipped ? null : (emailResult.error || 'The signed admission email could not be sent.'),
+      emailSkipped: !!emailResult.skipped,
+    });
   } catch (err) { return next(err); }
 });
 

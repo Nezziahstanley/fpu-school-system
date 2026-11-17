@@ -13664,12 +13664,20 @@ async function openTranscriptModal(studentId) {
   const root = document.getElementById('tx-modal-body');
 
   try {
-    const [studentRes, resultsRes, coursesRes, sessionsRes] = await Promise.all([
+    const [studentRes, resultsRes, coursesRes, sessionsRes, registrarRes] = await Promise.all([
       adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
       adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/courses?limit=5000').catch(() => null),
       adminFetch('/api/admin/sessions').catch(() => null),
+      adminFetch('/api/portal/signatories/registrar').catch(() => null),
     ]);
+    let registrar = null;
+    try {
+      if (registrarRes && registrarRes.ok) {
+        const signerPayload = await registrarRes.json();
+        registrar = signerPayload.data || null;
+      }
+    } catch { registrar = null; }
 
     let student = null;
     try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
@@ -13861,9 +13869,11 @@ async function openTranscriptModal(studentId) {
           `}
 
           <div class="tx-signatures">
-            <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Registrar</div></div>
+            <div class="tx-sig-block">
+              ${registrar?.signatureUrl ? '<img src="' + escapeHtml(registrar.signatureUrl) + '" alt="Registrar saved electronic signature" style="display:block;max-width:160px;max-height:52px;object-fit:contain;margin:0 auto 5px;" />' : '<div style="padding:8px;color:#b45309;font-size:10px;font-weight:800;">REGISTRAR SIGNATURE NOT CONFIGURED</div>'}
+              <div class="tx-sig-line"></div><div class="tx-sig-role">${escapeHtml(registrar?.fullName || 'Registrar')}</div>
+            </div>
             <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Date</div></div>
-            <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Rector</div></div>
           </div>
         </div>
       </div>

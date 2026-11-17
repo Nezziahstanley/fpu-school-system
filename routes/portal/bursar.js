@@ -138,7 +138,7 @@ router.post('/payments/:id/verify', only, async (req, res, next) => {
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
     if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be verified.' });
-    if (existing.bankName === 'Paystack') return res.status(403).json({ success: false, error: 'Paystack payments must be verified directly with the payment gateway.' });
+    if (String(existing.reference || '').startsWith('FPU-PS-')) return res.status(403).json({ success: false, error: 'Paystack payments must be verified directly with the payment gateway.' });
     const row = await paymentQueries.verify(req.params.id, req.user.id);
     if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.payment_verify', entity: 'payment', entityId: row.id });

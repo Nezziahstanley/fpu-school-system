@@ -72,24 +72,46 @@
     </div>
   </div>
 
-  <!-- REGISTER NEW COURSE -->
+  <!-- REGISTER COURSES BY LEVEL AND SEMESTER -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:.9rem;color:#0f172a;">Register a New Course</div>
-    <div style="padding:1rem;display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;">
-      <div style="flex:1;min-width:240px;">
-        <label style="display:block;font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Select a course to register</label>
-        <select id="new-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Loading…</option>
+    <div style="padding:.9rem 1rem;border-bottom:1px solid #f1f5f9;">
+      <div style="font-weight:800;font-size:.95rem;color:#0f172a;">Select Courses to Register</div>
+      <div style="font-size:.78rem;color:#64748b;margin-top:.25rem;">Choose your academic level and semester. The matching courses will appear below.</div>
+    </div>
+    <div style="padding:1rem;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;gap:.85rem;flex-wrap:wrap;align-items:end;">
+      <div style="flex:1;min-width:180px;">
+        <label for="filter-level" style="display:block;font-size:.7rem;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:.35rem;">Academic Level</label>
+        <select id="filter-level" style="width:100%;min-height:44px;padding:.65rem .75rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;">
+          <option value="">Loading level…</option>
+          <option value="ND">National Diploma (ND)</option>
+          <option value="HND">Higher National Diploma (HND)</option>
+          <option value="CERT">Certificate</option>
         </select>
       </div>
-      <div>
-        <label style="display:block;font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester</label>
-        <select id="new-semester" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="first">First</option>
-          <option value="second">Second</option>
+      <div style="flex:1;min-width:180px;">
+        <label for="filter-semester" style="display:block;font-size:.7rem;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:.35rem;">Semester</label>
+        <select id="filter-semester" style="width:100%;min-height:44px;padding:.65rem .75rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;">
+          <option value="first">First Semester</option>
+          <option value="second">Second Semester</option>
         </select>
       </div>
-      <button id="btn-register" style="padding:.55rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">📝 Register Course</button>
+      <div style="font-size:.75rem;color:#64748b;padding:.6rem 0;" id="registration-level-note">Your registered level will be used for course registration.</div>
+    </div>
+    <div style="padding:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.85rem;">
+        <div>
+          <div style="font-weight:800;color:#0f172a;">Available Courses</div>
+          <div id="available-course-count" style="font-size:.75rem;color:#64748b;margin-top:.2rem;">Select a level and semester to view courses.</div>
+        </div>
+        <button type="button" id="select-all-courses" style="min-height:40px;padding:.5rem .8rem;border:1px solid #cbd5e1;background:#fff;border-radius:8px;color:#334155;font-weight:700;cursor:pointer;">Select All</button>
+      </div>
+      <div id="available-courses-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:.75rem;">
+        <div style="padding:1.5rem;text-align:center;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:10px;">Loading available courses…</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;padding-top:1rem;border-top:1px solid #e5e7eb;">
+        <div style="font-size:.82rem;color:#475569;"><strong id="selected-course-count">0</strong> course(s) selected</div>
+        <button type="button" id="register-selected" disabled style="min-height:46px;padding:.7rem 1.15rem;font-size:.85rem;font-weight:800;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:.55;">📝 Register Selected Courses</button>
+      </div>
     </div>
   </div>
 </div>
@@ -103,6 +125,76 @@
 
   let ALL_REGISTERED = [];
   let ALL_AVAILABLE = [];
+  let STUDENT_LEVEL = '';
+  const selectedCourseIds = new Set();
+
+  function normalizeSemester(value) {
+    const v = String(value || '').trim().toLowerCase();
+    if (v.startsWith('first') || v === '1' || v === '1st') return 'first';
+    if (v.startsWith('second') || v === '2' || v === '2nd') return 'second';
+    return v;
+  }
+
+  function renderAvailableCourses() {
+    const grid = $('available-courses-grid');
+    const level = $('filter-level').value;
+    const semester = $('filter-semester').value;
+    const matches = ALL_AVAILABLE.filter(c =>
+      String(c.level || '').toUpperCase() === level &&
+      normalizeSemester(c.semesterName) === semester
+    );
+
+    matches.forEach(c => {
+      if (ALL_REGISTERED.some(r => String(r.courseCode).toLowerCase() === String(c.code).toLowerCase() && normalizeSemester(r.semester) === semester)) {
+        selectedCourseIds.delete(String(c.id));
+      }
+    });
+
+    $('available-course-count').textContent = matches.length
+      ? matches.length + ' course(s) available for ' + level + ' · ' + (semester === 'first' ? 'First' : 'Second') + ' Semester'
+      : 'No courses have been assigned to this level and semester yet.';
+    $('selected-course-count').textContent = selectedCourseIds.size;
+    $('select-all-courses').disabled = !matches.length || level !== STUDENT_LEVEL;
+    $('register-selected').disabled = selectedCourseIds.size === 0 || level !== STUDENT_LEVEL;
+    $('register-selected').style.opacity = $('register-selected').disabled ? '.55' : '1';
+
+    if (!matches.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;">No courses found for this selection. Please contact your HOD or Academic Office if you believe courses should be listed here.</div>';
+      return;
+    }
+
+    grid.innerHTML = matches.map(c => {
+      const id = String(c.id);
+      const alreadyRegistered = ALL_REGISTERED.some(r =>
+        String(r.courseCode).toLowerCase() === String(c.code).toLowerCase() &&
+        normalizeSemester(r.semester) === semester &&
+        ['pending','approved'].includes(String(r.status).toLowerCase())
+      );
+      const checked = selectedCourseIds.has(id);
+      return `
+        <label style="display:flex;gap:.7rem;align-items:flex-start;padding:.9rem;border:1px solid ${alreadyRegistered ? '#bbf7d0' : (checked ? '#059669' : '#e2e8f0')};background:${alreadyRegistered ? '#f0fdf4' : (checked ? '#ecfdf5' : '#fff')};border-radius:10px;cursor:${alreadyRegistered || level !== STUDENT_LEVEL ? 'not-allowed' : 'pointer'};opacity:${alreadyRegistered ? '.75' : '1'};">
+          <input class="course-pick" type="checkbox" value="${esc(id)}" ${checked ? 'checked' : ''} ${alreadyRegistered || level !== STUDENT_LEVEL ? 'disabled' : ''} style="width:18px;height:18px;margin-top:2px;accent-color:#059669;">
+          <span style="min-width:0;flex:1;">
+            <span style="display:flex;justify-content:space-between;gap:.5rem;align-items:center;">
+              <strong style="font-size:.88rem;color:#0f172a;">${esc(c.code)}</strong>
+              <span style="font-size:.7rem;font-weight:800;color:#065f46;background:#d1fae5;padding:3px 7px;border-radius:20px;white-space:nowrap;">${Number(c.unit) || 0} Units</span>
+            </span>
+            <span style="display:block;font-size:.8rem;color:#475569;margin-top:.35rem;">${esc(c.title)}</span>
+            ${alreadyRegistered ? '<span style="display:inline-block;margin-top:.45rem;font-size:.68rem;font-weight:800;color:#166534;">Already registered</span>' : ''}
+          </span>
+        </label>`;
+    }).join('');
+
+    grid.querySelectorAll('.course-pick').forEach(input => {
+      input.addEventListener('change', () => {
+        if (input.checked) selectedCourseIds.add(input.value);
+        else selectedCourseIds.delete(input.value);
+        $('selected-course-count').textContent = selectedCourseIds.size;
+        $('register-selected').disabled = selectedCourseIds.size === 0 || $('filter-level').value !== STUDENT_LEVEL;
+        $('register-selected').style.opacity = $('register-selected').disabled ? '.55' : '1';
+      });
+    });
+  }
 
   async function loadRegistered() {
     const tbody = $('registered-tbody');
@@ -111,7 +203,6 @@
     try {
       const res = await core.portalFetch('/api/student/registered-courses');
       ALL_REGISTERED = res.data || [];
-
       const totalUnits = ALL_REGISTERED.reduce((sum, c) => sum + Number(c.unit || 0), 0);
       const approved = ALL_REGISTERED.filter(c => c.status === 'approved').length;
       const pending = ALL_REGISTERED.filter(c => c.status === 'pending').length;
@@ -125,79 +216,100 @@
 
       if (!ALL_REGISTERED.length) {
         tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">You have not registered for any courses yet.</td></tr>';
-        return;
+      } else {
+        tbody.innerHTML = ALL_REGISTERED.map(c => `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;"><strong>${esc(c.courseCode)}</strong></td>
+            <td style="padding:.65rem .75rem;">${esc(c.courseTitle)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">${esc(c.unit)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(c.semester)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span class="chip" style="background:${c.status === 'approved' ? '#d1fae5' : '#fef9c3'};color:${c.status === 'approved' ? '#065f46' : '#854d0e'};font-size:.7rem;padding:2px 6px;border-radius:4px;font-weight:700;text-transform:capitalize;">${esc(c.status)}</span>
+            </td>
+            <td style="padding:.65rem .75rem;text-align:right;">
+              <button class="btn-drop" data-id="${esc(c.id)}" data-code="${esc(c.courseCode)}" style="background:#fee2e2;color:#991b1b;padding:.3rem .6rem;border-radius:4px;border:none;cursor:pointer;font-size:.7rem;font-weight:700;">Drop</button>
+            </td>
+          </tr>`).join('');
+        tbody.querySelectorAll('.btn-drop').forEach(btn => {
+          btn.addEventListener('click', () => dropCourse(btn.dataset.id, btn.dataset.code));
+        });
       }
-
-      tbody.innerHTML = ALL_REGISTERED.map(c => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;"><strong>${esc(c.courseCode)}</strong></td>
-          <td style="padding:.65rem .75rem;">${esc(c.courseTitle)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;">${esc(c.unit)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(c.semester)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <span class="chip" style="background:${c.status === 'approved' ? '#d1fae5' : '#fef9c3'};color:${c.status === 'approved' ? '#065f46' : '#854d0e'};font-size:.7rem;padding:2px 6px;border-radius:4px;font-weight:700;text-transform:capitalize;">${esc(c.status)}</span>
-          </td>
-          <td style="padding:.65rem .75rem;text-align:right;">
-            <button class="btn-drop" data-id="${c.id}" style="background:#fee2e2;color:#991b1b;padding:.3rem .6rem;border-radius:4px;border:none;cursor:pointer;font-size:.7rem;font-weight:700;">Drop</button>
-          </td>
-        </tr>
-      `).join('');
-
-      tbody.querySelectorAll('.btn-drop').forEach(btn => {
-        btn.addEventListener('click', () => dropCourse(btn.dataset.id, btn.dataset.code));
-      });
-
+      renderAvailableCourses();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
   async function loadAvailable() {
-    const sel = $('new-course');
-    sel.innerHTML = '<option value="">Loading…</option>';
-
+    const grid = $('available-courses-grid');
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#94a3b8;">Loading courses…</div>';
     try {
-      const res = await core.portalFetch('/api/student/available-courses');
-      ALL_AVAILABLE = res.data || [];
-
-      if (!ALL_AVAILABLE.length) {
-        sel.innerHTML = '<option value="">No courses available</option>';
-        return;
+      const [dashboard, response] = await Promise.all([
+        core.portalFetch('/api/student/dashboard'),
+        core.portalFetch('/api/student/available-courses')
+      ]);
+      STUDENT_LEVEL = String(dashboard.data?.student?.level || '').toUpperCase();
+      const levelSelect = $('filter-level');
+      if (STUDENT_LEVEL && ['ND','HND','CERT'].includes(STUDENT_LEVEL)) {
+        levelSelect.value = STUDENT_LEVEL;
       }
-
-      sel.innerHTML = '<option value="">Select Course</option>' + ALL_AVAILABLE.map(c => 
-        `<option value="${c.id}">${esc(c.code)} - ${esc(c.title)} (${c.unit} units)</option>`
-      ).join('');
+      $('registration-level-note').textContent = STUDENT_LEVEL
+        ? 'Your registered level is ' + STUDENT_LEVEL + '. You can view other levels, but registration is limited to your assigned level.'
+        : 'Your academic level could not be confirmed. Please contact the Registry.';
+      ALL_AVAILABLE = response.data || [];
+      renderAvailableCourses();
     } catch (err) {
-      sel.innerHTML = '<option value="">Error loading courses</option>';
+      grid.innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#991b1b;">Unable to load courses: ${esc(err.message)}</div>`;
     }
   }
 
-  async function registerCourse() {
-    const courseId = $('new-course').value;
-    const semester = $('new-semester').value;
+  async function registerSelectedCourses() {
+    const level = $('filter-level').value;
+    const semester = $('filter-semester').value;
+    if (!STUDENT_LEVEL || level !== STUDENT_LEVEL) {
+      return core.showToast && core.showToast('You can only register courses for your assigned academic level (' + (STUDENT_LEVEL || 'not available') + ').', 'warning');
+    }
+    const chosen = ALL_AVAILABLE.filter(c => selectedCourseIds.has(String(c.id)) &&
+      String(c.level || '').toUpperCase() === level &&
+      normalizeSemester(c.semesterName) === semester
+    );
+    if (!chosen.length) return core.showToast && core.showToast('Please select at least one course.', 'warning');
 
-    if (!courseId) return core.showToast && core.showToast('Please select a course.', 'warning');
-
-    const btn = $('btn-register');
+    const btn = $('register-selected');
     btn.disabled = true;
     btn.textContent = 'Registering…';
-
-    try {
-      await core.portalFetch('/api/student/register-course', {
-        method: 'POST',
-        body: { courseId: Number(courseId), semester }
-      });
-      core.showToast && core.showToast('Course registered successfully!', 'success');
-      loadRegistered();
-      loadAvailable();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '📝 Register Course';
+    let success = 0;
+    const failures = [];
+    for (const course of chosen) {
+      try {
+        await core.portalFetch('/api/student/register-course', {
+          method: 'POST',
+          body: { courseId: Number(course.id), semester }
+        });
+        success++;
+        selectedCourseIds.delete(String(course.id));
+      } catch (err) {
+        failures.push(course.code + ': ' + err.message);
+      }
     }
+    if (success) core.showToast && core.showToast(success + ' course(s) submitted for approval.', 'success');
+    if (failures.length) core.showToast && core.showToast(failures.slice(0,2).join(' · '), 'warning');
+    await loadRegistered();
+    btn.textContent = '📝 Register Selected Courses';
+    renderAvailableCourses();
   }
+
+  $('filter-level')?.addEventListener('change', () => { selectedCourseIds.clear(); renderAvailableCourses(); });
+  $('filter-semester')?.addEventListener('change', () => { selectedCourseIds.clear(); renderAvailableCourses(); });
+  $('select-all-courses')?.addEventListener('click', () => {
+    const level = $('filter-level').value;
+    const semester = $('filter-semester').value;
+    ALL_AVAILABLE.filter(c => String(c.level || '').toUpperCase() === level && normalizeSemester(c.semesterName) === semester)
+      .filter(c => !ALL_REGISTERED.some(r => String(r.courseCode).toLowerCase() === String(c.code).toLowerCase() && normalizeSemester(r.semester) === semester && ['pending','approved'].includes(String(r.status).toLowerCase())))
+      .forEach(c => selectedCourseIds.add(String(c.id)));
+    renderAvailableCourses();
+  });
+  $('register-selected')?.addEventListener('click', registerSelectedCourses);
 
   async function dropCourse(regId, code) {
     if (!confirm(`Drop course ${code || ''}? This cannot be undone.`)) return;

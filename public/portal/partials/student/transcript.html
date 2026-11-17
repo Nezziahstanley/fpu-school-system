@@ -207,8 +207,10 @@
         <table class="tr-results-table"><thead><tr><th style="width:10%">Code</th><th style="width:50%">Course Title</th><th style="width:8%;text-align:center">Units</th><th style="width:10%;text-align:center">Score</th><th style="width:10%;text-align:center">Grade</th><th style="width:12%;text-align:center">Points</th></tr></thead><tbody>${resultRows}</tbody></table>
         <div class="tr-summary"><div><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#64748b">Total Units</div><div style="font-size:1.1rem;font-weight:800">${esc(d.totalUnits || 0)}</div></div>
         <div style="text-align:right"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#64748b">Cumulative GPA</div><div class="tr-cgpa-big">${cgpa}</div><div style="font-size:.78rem;font-weight:600">${esc(d.classification || '—')}</div></div></div>
-        <div class="tr-signature"><div>Date: ${issued}</div><div class="tr-sign-block"><strong>REGISTRAR</strong><div style="font-size:.7rem;color:#64748b">Signature / Stamp</div></div></div>
-        <div class="tr-footer">This is a computer-generated transcript and is valid without a physical signature.</div>
+        <div class="tr-signature"><div>Date: ${issued}</div><div class="tr-sign-block">
+          ${d.registrar?.signatureUrl ? '<img src="' + esc(d.registrar.signatureUrl) + '" alt="Registrar saved electronic signature" style="display:block;max-width:170px;max-height:58px;object-fit:contain;margin:0 auto 5px;" />' : '<div style="padding:8px;color:#b45309;font-size:.72rem;font-weight:700;">' + (d.registrarSignatureStatus === 'duplicate' ? 'SIGNATORY CONFLICT — CONTACT REGISTRY' : 'REGISTRAR SIGNATURE NOT CONFIGURED') + '</div>'}
+          <strong>${esc(d.registrar?.fullName || 'REGISTRAR')}</strong><div style="font-size:.7rem;color:#64748b">Registrar · Signature / Stamp</div></div></div>
+        <div class="tr-footer">${d.registrar?.signatureUrl ? 'Electronic Registrar signature shown. Official issuance remains subject to Registry approval.' : 'UNSIGNED PREVIEW — This transcript must not be treated as an officially signed document until the Registry signature is configured.'}</div>
       </div>`;
     window.print();
   }

@@ -53,6 +53,7 @@ const paymentRoutes = new Set([
   'POST /student/payments/paystack/initialize',
   'POST /student/payments/paystack/verify',
   'POST /admin/auth/logout',
+  'GET /admin/auth/me',
 ]);
 
 async function studentFeeGate(req, res, next) {

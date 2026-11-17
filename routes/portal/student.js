@@ -40,73 +40,7 @@ const {
 
 
 const only = requireRole('student', 'admin');
-
-// Students with an outstanding balance may access only the payment centre.
-// Verified payments alone reduce the balance; pending bank transfers do not.
-async function getStudentFeeAccess(userId) {
-  const [student] = await db.select({
-    id: users.id, programmeId: users.programmeId, level: users.level,
-  }).from(users).where(eq(users.id, Number(userId))).limit(1);
-  if (!student) throw new Error('Student account not found.');
-
-  const [session] = await db.select({ id: academicSessions.id })
-    .from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
-  if (!session?.id) {
-    return { paymentRequired: false, totalDue: 0, totalPaid: 0, balance: 0, sessionId: null };
-  }
-
-  const [fee] = await db.select({
-    totalDue: sql`COALESCE(SUM(${schema.feeStructures.total}), 0)::numeric`,
-  }).from(schema.feeStructures).where(and(
-    eq(schema.feeStructures.sessionId, session.id),
-    eq(schema.feeStructures.programmeId, student.programmeId),
-    eq(schema.feeStructures.level, student.level),
-    eq(schema.feeStructures.isActive, true),
-  ));
-
-  const totalDue = Number(fee?.totalDue || 0);
-  const paymentQueries = require('../../db/queries/payments');
-  const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(student.id, session.id)) || 0;
-  const balance = Math.max(0, totalDue - totalPaid);
-  return {
-    paymentRequired: totalDue > 0 && balance > 0.009,
-    totalDue, totalPaid, balance, sessionId: session.id,
-  };
-}
-
-const paymentGateExemptions = new Set([
-  'GET /access-status',
-  'GET /fees',
-  'GET /payment-options',
-  'POST /payments/bank-transfer',
-  'POST /payments/paystack/initialize',
-  'POST /payments/paystack/verify',
-]);
-
-router.use(async (req, res, next) => {
-  try {
-    // Authenticate once before evaluating the gate. Staff accounts are unaffected.
-    const authenticated = await only(req, res, () => {});
-    if (res.headersSent) return;
-    if (!req.user || req.user.role !== 'student') return next();
-
-    const routeKey = req.method.toUpperCase() + ' ' + req.path;
-    if (paymentGateExemptions.has(routeKey)) return next();
-
-    const access = await getStudentFeeAccess(req.user.id);
-    if (access.paymentRequired) {
-      return res.status(402).json({
-        success: false,
-        code: 'STUDENT_PAYMENT_REQUIRED',
-        error: 'Your dashboard is temporarily restricted because required school fees are outstanding. Please complete payment and wait for verification.',
-        data: access,
-      });
-    }
-    return next();
-  } catch (err) {
-    return next(err);
-  }
-});
+const { getStudentFeeAccess } = require('../../middleware/studentFeeGate');
 
 // Explicit status endpoint used by the student dashboard before opening pages.
 router.get('/access-status', only, async (req, res, next) => {
@@ -115,30 +49,6 @@ router.get('/access-status', only, async (req, res, next) => {
     return res.json({ success: true, data });
   } catch (err) { return next(err); }
 });
-
-
-// Resolve the active academic session from the database. A user's cached session
-// is only used when no session is marked current and that session still exists.
-async function resolveCurrentAcademicSessionId(req) {
-  const [activeSession] = await db
-    .select({ id: academicSessions.id })
-    .from(academicSessions)
-    .where(eq(academicSessions.isCurrent, true))
-    .limit(1);
-
-  if (activeSession?.id) return activeSession.id;
-
-  const userSessionId = Number(req.user?.currentSessionId);
-  if (!Number.isInteger(userSessionId) || userSessionId <= 0) return null;
-
-  const [userSession] = await db
-    .select({ id: academicSessions.id })
-    .from(academicSessions)
-    .where(eq(academicSessions.id, userSessionId))
-    .limit(1);
-
-  return userSession?.id || null;
-}
 
 // ============================================================
 // GET /api/student/dashboard

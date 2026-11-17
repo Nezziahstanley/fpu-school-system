@@ -442,7 +442,8 @@ router.post('/register-course', only, async (req, res, next) => {
       departmentId: courses.departmentId,
       programmeId: courses.programmeId,
       level: courses.level,
-      semesterName: courses.semesterName
+      semesterName: courses.semesterName,
+      isActive: courses.isActive
     }).from(courses).where(eq(courses.id, numericCourseId)).limit(1);
     if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
     const courseSemester = String(course.semesterName || '').trim().toLowerCase();

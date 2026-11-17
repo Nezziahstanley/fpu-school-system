@@ -12,6 +12,20 @@ const multer = require('multer');
 // Cloudinary setup
 const { storage } = require('../../utils/cloudinary');
 const upload = multer({ storage });
+const paymentReceiptUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(_req, file, callback) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.mimetype);
+    callback(allowed ? null : new Error('Receipt must be a JPG, PNG, WEBP or PDF file.'), allowed);
+  },
+});
+const handlePaymentReceiptUpload = (req, res, next) => {
+  paymentReceiptUpload.single('receipt')(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, error: err.message || 'Invalid receipt upload.' });
+    next();
+  });
+};
 
 const { db, schema } = require('../../db');
 const { eq, and, desc, sql, inArray } = require('drizzle-orm');
@@ -1261,7 +1275,7 @@ router.get('/payment-options', only, async (_req, res) => {
 });
 
 // Student submits a bank transfer for Bursar verification.
-router.post('/payments/bank-transfer', only, upload.single('receipt'), async (req, res) => {
+router.post('/payments/bank-transfer', only, handlePaymentReceiptUpload, async (req, res) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);

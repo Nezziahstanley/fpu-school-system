@@ -278,7 +278,7 @@ router.get('/fees', only, async (req, res, next) => {
     let totalDue = 0;
     try {
       const feeResult = await db.execute(sql`
-        SELECT SUM(amount)::int AS total
+        SELECT COALESCE(SUM(total), 0)::numeric AS total
         FROM fee_structures
         WHERE session_id = ${sessionId}
           AND is_active = true
@@ -1203,6 +1203,183 @@ router.get('/library/fines', only, async (req, res, next) => {
     return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     return res.json({ success: true, data: [] });
+  }
+});
+
+
+/* ============================================================
+   STUDENT PAYMENTS — bank transfer + Paystack
+   ============================================================ */
+async function getStudentFeeBalance(studentId, sessionId) {
+  const result = await db.execute(sql`
+    SELECT u.programme_id AS "programmeId", u.level,
+           COALESCE(SUM(fs.total), 0)::numeric AS "totalDue"
+    FROM users u
+    LEFT JOIN fee_structures fs
+      ON fs.session_id = ${sessionId}
+     AND fs.is_active = true
+     AND (fs.programme_id = u.programme_id OR fs.programme_id IS NULL)
+     AND (fs.level = u.level OR fs.level IS NULL)
+    WHERE u.id = ${studentId}
+    GROUP BY u.id, u.programme_id, u.level
+    LIMIT 1
+  `);
+  const row = result.rows?.[0];
+  if (!row) return null;
+  const paid = require('../../db/queries/payments');
+  const totalPaid = Number(await paid.totalVerifiedForStudent(studentId, sessionId)) || 0;
+  const totalDue = Number(row.totalDue) || 0;
+  return { totalDue, totalPaid, balance: Math.max(0, totalDue - totalPaid) };
+}
+
+// Only the approved bank-transfer destinations seeded/configured in the
+// bank settings category are exposed to authenticated students.
+router.get('/payment-options', only, async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT value FROM settings
+      WHERE category = 'bank' AND key LIKE 'bank_account_%'
+      ORDER BY key
+    `);
+    const bankAccounts = (rows.rows || []).map((row) => {
+      try {
+        const bank = JSON.parse(row.value || '{}');
+        if (!bank.bank || !bank.accountName || !bank.accountNumber) return null;
+        return { bank: bank.bank, accountName: bank.accountName, accountNumber: bank.accountNumber };
+      } catch { return null; }
+    }).filter(Boolean);
+    return res.json({
+      success: true,
+      data: {
+        bankAccounts,
+        paystackEnabled: Boolean(process.env.PAYSTACK_SECRET_KEY),
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Unable to load payment options.' });
+  }
+});
+
+// Student submits a bank transfer for Bursar verification.
+router.post('/payments/bank-transfer', only, upload.single('receipt'), async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session.' });
+    const amount = Number(req.body?.amount);
+    const bankName = String(req.body?.bankName || '').trim().slice(0, 120);
+    const depositorName = String(req.body?.depositorName || '').trim().slice(0, 200);
+    const depositDate = String(req.body?.depositDate || '').trim();
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) {
+      return res.status(400).json({ success: false, error: 'Enter a valid transfer amount.' });
+    }
+    if (!bankName || !depositorName || !/^\d{4}-\d{2}-\d{2}$/.test(depositDate)) {
+      return res.status(400).json({ success: false, error: 'Bank, depositor name and a valid transfer date are required.' });
+    }
+    if (!req.file?.path) return res.status(400).json({ success: false, error: 'Upload your transfer receipt.' });
+    const balance = await getStudentFeeBalance(studentId, sessionId);
+    if (!balance) return res.status(404).json({ success: false, error: 'Student record not found.' });
+    if (amount > balance.balance) return res.status(400).json({ success: false, error: 'The amount cannot exceed your outstanding balance.' });
+    const reference = 'FPU-BT-' + require('crypto').randomUUID().replace(/-/g, '').slice(0, 20).toUpperCase();
+    const result = await db.execute(sql`
+      INSERT INTO payments (student_id, session_id, amount, reference, bank_name, depositor_name, deposit_date, receipt_url, status)
+      VALUES (${studentId}, ${sessionId}, ${amount}, ${reference}, ${bankName}, ${depositorName}, ${depositDate}, ${req.file.path}, 'pending')
+      RETURNING id, amount, reference, status, receipt_url AS "receiptUrl", created_at AS "createdAt"
+    `);
+    return res.status(201).json({ success: true, data: result.rows?.[0] });
+  } catch (err) {
+    console.error('[student/bank-transfer]', err);
+    return res.status(500).json({ success: false, error: 'Unable to submit transfer. Please try again.' });
+  }
+});
+
+// Start a Paystack checkout. The secret key stays on the server.
+router.post('/payments/paystack/initialize', only, async (req, res) => {
+  try {
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      return res.status(503).json({ success: false, error: 'Online payments are not configured yet. Please use bank transfer.' });
+    }
+    const studentId = req.user.id;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session.' });
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) {
+      return res.status(400).json({ success: false, error: 'Enter a valid payment amount.' });
+    }
+    const balance = await getStudentFeeBalance(studentId, sessionId);
+    if (!balance) return res.status(404).json({ success: false, error: 'Student record not found.' });
+    if (amount > balance.balance) return res.status(400).json({ success: false, error: 'The amount cannot exceed your outstanding balance.' });
+    const [student] = await db.select({ email: users.email, firstName: users.firstName, lastName: users.lastName })
+      .from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student?.email) return res.status(400).json({ success: false, error: 'A valid email address is required on your student profile.' });
+    const reference = 'FPU-PS-' + require('crypto').randomUUID().replace(/-/g, '').toUpperCase();
+    await db.execute(sql`
+      INSERT INTO payments (student_id, session_id, amount, reference, bank_name, status)
+      VALUES (${studentId}, ${sessionId}, ${amount}, ${reference}, 'Paystack', 'pending')
+    `);
+    const origin = process.env.APP_URL || (req.get('origin') || '').replace(/\/$/, '');
+    try {
+      const gateway = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + process.env.PAYSTACK_SECRET_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: student.email,
+          amount: Math.round(amount * 100),
+          reference,
+          callback_url: process.env.PAYSTACK_CALLBACK_URL || (origin ? origin + '/portal/app.html' : undefined),
+          metadata: { studentId, sessionId, purpose: 'Federal Polytechnic Ugep student fees' },
+        }),
+      });
+      const payload = await gateway.json();
+      if (!gateway.ok || !payload.status || !payload.data?.authorization_url) {
+        await db.execute(sql`DELETE FROM payments WHERE student_id = ${studentId} AND reference = ${reference} AND status = 'pending'`);
+        return res.status(502).json({ success: false, error: payload.message || 'Paystack could not start checkout.' });
+      }
+      return res.json({ success: true, data: { reference, authorizationUrl: payload.data.authorization_url } });
+    } catch (gatewayError) {
+      await db.execute(sql`DELETE FROM payments WHERE student_id = ${studentId} AND reference = ${reference} AND status = 'pending'`);
+      throw gatewayError;
+    }
+  } catch (err) {
+    console.error('[student/paystack/initialize]', err);
+    return res.status(500).json({ success: false, error: 'Unable to initialize online payment.' });
+  }
+});
+
+// Verify a Paystack reference directly with Paystack before marking it paid.
+router.post('/payments/paystack/verify', only, async (req, res) => {
+  try {
+    if (!process.env.PAYSTACK_SECRET_KEY) return res.status(503).json({ success: false, error: 'Online payments are not configured.' });
+    const studentId = req.user.id;
+    const reference = String(req.body?.reference || '').trim();
+    if (!/^FPU-PS-[A-F0-9]{32}$/.test(reference)) return res.status(400).json({ success: false, error: 'Invalid payment reference.' });
+    const pendingResult = await db.execute(sql`
+      SELECT id, amount, status FROM payments
+      WHERE student_id = ${studentId} AND reference = ${reference}
+      LIMIT 1
+    `);
+    const payment = pendingResult.rows?.[0];
+    if (!payment) return res.status(404).json({ success: false, error: 'Payment reference not found.' });
+    if (payment.status === 'verified') return res.json({ success: true, data: { reference, status: 'verified' } });
+    if (payment.status !== 'pending') return res.status(409).json({ success: false, error: 'This payment is no longer pending.' });
+    const gateway = await fetch('https://api.paystack.co/transaction/verify/' + encodeURIComponent(reference), {
+      headers: { Authorization: 'Bearer ' + process.env.PAYSTACK_SECRET_KEY },
+    });
+    const payload = await gateway.json();
+    const tx = payload.data;
+    if (!gateway.ok || !payload.status || tx?.status !== 'success' ||
+        tx.reference !== reference || tx.currency !== 'NGN' ||
+        Number(tx.amount) !== Math.round(Number(payment.amount) * 100)) {
+      return res.status(402).json({ success: false, error: 'Paystack has not confirmed this payment. Your account has not been credited.' });
+    }
+    await db.execute(sql`
+      UPDATE payments SET status = 'verified', verified_at = NOW()
+      WHERE id = ${payment.id} AND student_id = ${studentId} AND status = 'pending'
+    `);
+    return res.json({ success: true, data: { reference, status: 'verified' } });
+  } catch (err) {
+    console.error('[student/paystack/verify]', err);
+    return res.status(500).json({ success: false, error: 'Unable to verify payment at this time.' });
   }
 });
 

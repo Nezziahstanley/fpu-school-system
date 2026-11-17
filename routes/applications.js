@@ -212,8 +212,11 @@ router.post('/bulk', requireRole(STAFF), async (req, res, next) => {
 
         if (action === 'approve') {
           if (app.status === 'approved' || app.status === 'registered') continue;
-          await applications.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
-          await sendApplicationApproved({ ...app, status: 'approved' }).catch(() => {});
+          const approvedApp = await applications.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
+          const emailResult = await sendApplicationApproved(approvedApp).catch((error) => ({ ok: false, error: error.message }));
+          if (!emailResult.ok && !emailResult.skipped) {
+            errors.push({ id, error: `Application approved, but signed admission email was not sent: ${emailResult.error || 'Email failed.'}` });
+          }
         } else if (action === 'reject') {
           if (app.status === 'registered') { errors.push({ id, error: 'already registered' }); continue; }
           await applications.setStatus(app.id, 'rejected', {
@@ -278,10 +281,16 @@ router.post('/:id/approve', requireRole(STAFF), async (req, res, next) => {
     }
 
     const updated = await applications.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
-    await sendApplicationApproved(updated).catch(() => {});
-    // ✅ Added after payload
-    await logAudit({ req, action: 'application.approve', entity: 'application', entityId: app.id, after: { status: 'approved', applicationNumber: app.applicationNumber } });
-    return res.json({ success: true, data: updated });
+    const emailResult = await sendApplicationApproved(updated).catch((error) => ({ ok: false, error: error.message }));
+    // Approval remains recorded even if email delivery is unavailable; report the email outcome explicitly.
+    await logAudit({ req, action: 'application.approve', entity: 'application', entityId: app.id, after: { status: 'approved', applicationNumber: app.applicationNumber, admissionEmailSent: !!emailResult.ok } });
+    return res.json({
+      success: true,
+      data: updated,
+      emailSent: !!emailResult.ok,
+      emailError: emailResult.ok || emailResult.skipped ? null : (emailResult.error || 'The signed admission email could not be sent.'),
+      emailSkipped: !!emailResult.skipped,
+    });
   } catch (err) { return next(err); }
 });
 

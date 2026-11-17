@@ -63,30 +63,11 @@ router.get('/signatories/:role', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Unsupported signatory role.' });
     }
 
-    const matches = await db.select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      signatureUrl: users.signatureUrl,
-    }).from(users)
-      .where(and(eq(users.role, role), eq(users.isActive, true)))
-      .limit(2);
-
-    if (matches.length > 1) {
-      return res.status(409).json({ success: false, error: 'More than one active account has this signatory role. Please confirm the designated officer.' });
+    const result = await getUniqueSignedSignatory(role);
+    if (!result.ok) {
+      return res.status(result.status || 409).json({ success: false, error: result.error });
     }
-    if (!matches.length) {
-      return res.status(404).json({ success: false, error: 'No active account is assigned to this signatory role.' });
-    }
-
-    const signer = matches[0];
-    return res.json({
-      success: true,
-      data: {
-        fullName: [signer.firstName, signer.lastName].filter(Boolean).join(' ').trim(),
-        signatureUrl: signer.signatureUrl || null,
-      },
-    });
+    return res.json({ success: true, data: result.data });
   } catch (err) {
     return next(err);
   }

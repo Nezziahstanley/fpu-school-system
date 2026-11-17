@@ -14,8 +14,10 @@
 
   <!-- ACTIONS -->
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
-    <button id="fee-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-    <button id="fee-print" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print Receipt</button>
+    <button id="pay-online-shortcut" type="button" style="padding:.65rem 1rem;font-size:.84rem;font-weight:800;background:#065f46;color:#fff;border:0;border-radius:8px;cursor:pointer;">💳 Pay Online Now</button>
+    <button id="pay-bank-shortcut" type="button" style="padding:.65rem 1rem;font-size:.84rem;font-weight:800;background:#1e40af;color:#fff;border:0;border-radius:8px;cursor:pointer;">🏦 Bank Transfer</button>
+    <button id="fee-refresh" type="button" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    <button id="fee-print" type="button" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">🖨 Print Receipt</button>
   </div>
 
   <!-- STAT TILES -->
@@ -52,7 +54,7 @@
 
 
   <!-- PAYMENT CENTER -->
-  <div style="background:#fff;border:1px solid #dbeafe;border-radius:14px;padding:1rem;margin-bottom:1.25rem;">
+  <div id="payment-center" style="background:#fff;border:2px solid #86efac;border-radius:14px;padding:1rem;margin-bottom:1.25rem;scroll-margin-top:90px;">
     <div style="font-weight:800;font-size:1rem;color:#0f172a;margin-bottom:.25rem;">Make a Payment</div>
     <div style="font-size:.8rem;color:#64748b;margin-bottom:1rem;">Pay online with Paystack or submit a bank transfer for Bursar confirmation.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
@@ -418,6 +420,19 @@
     }
   }
 
+  function openPaymentForm(formId, inputId) {
+    const panel = $('payment-center');
+    const form = $(formId);
+    panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => {
+      form?.style && (form.style.outline = '3px solid #86efac');
+      $(inputId)?.focus();
+      window.setTimeout(() => { if (form) form.style.outline = ''; }, 1400);
+    }, 350);
+  }
+
+  $('pay-online-shortcut')?.addEventListener('click', () => openPaymentForm('paystack-form', 'online-amount'));
+  $('pay-bank-shortcut')?.addEventListener('click', () => openPaymentForm('bank-transfer-form', 'transfer-amount'));
   $('fee-refresh')?.addEventListener('click', load);
   $('fee-print')?.addEventListener('click', printReceipt);
 

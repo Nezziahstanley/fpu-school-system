@@ -19,6 +19,7 @@ const DEFAULT_FROM = EMAIL_FROM || `"${INSTITUTION}" <no-reply@fedpolyugep.edu.n
 const BASE_URL = PUBLIC_URL || 'https://fpu-school-systems.onrender.com';
 
 const SEND_TIMEOUT_MS = 8000;
+const { getUniqueSignedSignatory } = require('./signatories');
 
 function hasSendGrid() { return !!SENDGRID_API_KEY; }
 function isEmailEnabled() {
@@ -149,6 +150,8 @@ async function sendApplicationReceived(app) {
 }
 
 async function sendApplicationApproved(app) {
+  const signatory = await getUniqueSignedSignatory('admission_officer');
+  if (!signatory.ok) return { ok: false, error: signatory.error, signatoryRequired: true };
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
   // Use app.id for the link to avoid slashes in the URL
   const letterUrl = `${BASE_URL}/api/letters/${app.id}?type=provisional`;
@@ -167,6 +170,8 @@ async function sendApplicationApproved(app) {
 }
 
 async function sendApplicationRejected(app, reason) {
+  const signatory = await getUniqueSignedSignatory('admission_officer');
+  if (!signatory.ok) return { ok: false, error: signatory.error, signatoryRequired: true };
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
   const letterUrl = `${BASE_URL}/api/letters/${app.id}?type=rejection`;
   const body = `
@@ -183,6 +188,8 @@ async function sendApplicationRejected(app, reason) {
 }
 
 async function sendMatriculationLetter(app) {
+  const signatory = await getUniqueSignedSignatory('registrar');
+  if (!signatory.ok) return { ok: false, error: signatory.error, signatoryRequired: true };
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
   const letterUrl = `${BASE_URL}/api/letters/${app.id}?type=matriculation`;
   const body = `
@@ -201,6 +208,8 @@ async function sendMatriculationLetter(app) {
 }
 
 async function sendRejectionLetter(app) {
+  const signatory = await getUniqueSignedSignatory('admission_officer');
+  if (!signatory.ok) return { ok: false, error: signatory.error, signatoryRequired: true };
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
   const letterUrl = `${BASE_URL}/api/letters/${app.id}?type=rejection`;
   const body = `

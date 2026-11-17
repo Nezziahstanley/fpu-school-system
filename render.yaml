@@ -21,8 +21,6 @@ services:
         sync: false
       - key: PAYSTACK_SECRET_KEY
         sync: false
-      - key: APP_URL
-        sync: false
       - key: ALLOWED_ORIGINS
         sync: false
       - key: BCRYPT_ROUNDS

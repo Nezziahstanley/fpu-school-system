@@ -157,6 +157,18 @@ router.get('/results', only, async (req, res, next) => {
     });
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
 
+    // Resolve the Registrar only when there is exactly one active account.
+    // Never attach an arbitrary officer's signature to an official transcript.
+    const registrarMatches = await db.select({
+      firstName: users.firstName,
+      lastName: users.lastName,
+      signatureUrl: users.signatureUrl,
+    }).from(users).where(and(eq(users.role, 'registrar'), eq(users.isActive, true))).limit(2);
+    const registrar = registrarMatches.length === 1 ? registrarMatches[0] : null;
+    const registrarSignatureStatus = registrarMatches.length > 1
+      ? 'duplicate'
+      : registrar?.signatureUrl ? 'ready' : 'missing';
+
     let classification = '';
     const val = parseFloat(cgpa);
     if (val >= 3.50) classification = 'Distinction';
@@ -233,6 +245,11 @@ router.get('/transcript', only, async (req, res, next) => {
       data: {
         student: { ...student, matricNumber: (student?.matricNumber || '').replace(/SMT/gi, '').trim() },
         results: uniqueResults, cgpa, totalUnits, classification,
+        registrar: registrar ? {
+          fullName: [registrar.firstName, registrar.lastName].filter(Boolean).join(' ').trim(),
+          signatureUrl: registrar.signatureUrl || null,
+        } : null,
+        registrarSignatureStatus,
       }
     });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }

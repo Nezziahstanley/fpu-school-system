@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 
 const { db, schema } = require('../db');
-const { eq, and, desc, isNotNull } = require('drizzle-orm');
+const { eq, and, desc } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
@@ -178,11 +178,10 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
         .from(users)
         .where(and(
           eq(users.role, role),
-          eq(users.isActive, true),
-          isNotNull(users.signatureUrl)
+          eq(users.isActive, true)
         ))
         .limit(2);
-      return matches.length === 1 ? matches[0] : null;
+      return matches.length === 1 && matches[0].signatureUrl ? matches[0] : null;
     };
     const registrarSigner = await findActiveSigner('registrar');
     const bursarSigner = doc.type === 'clearance' ? await findActiveSigner('bursar') : null;
@@ -190,7 +189,7 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
     const signer = doc.type === 'clearance' ? bursarSigner : registrarSigner;
     const signatureMarkup = (person, alt) => person && person.signatureUrl
       ? `<img src="${escapeHtml(person.signatureUrl)}" alt="${alt}" style="display:block;max-width:170px;max-height:58px;object-fit:contain;margin:0 auto 5px;" />`
-      : '<div style="height:48px;"></div>';
+      : '<div style="padding:8px 5px;color:#b45309;font:800 10px Arial,sans-serif;text-align:center;">SIGNATURE NOT CONFIGURED — UNSIGNED PREVIEW</div>';
     const signerHtml = signatureMarkup(signer, 'Authorised electronic signature');
     const registrarSignerHtml = signatureMarkup(registrarSigner, 'Registrar electronic signature');
     const rectorSignerHtml = signatureMarkup(rectorSigner, 'Rector electronic signature');

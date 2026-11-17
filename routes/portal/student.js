@@ -1277,6 +1277,9 @@ router.post('/payments/bank-transfer', only, upload.single('receipt'), async (re
       return res.status(400).json({ success: false, error: 'Bank, depositor name and a valid transfer date are required.' });
     }
     if (!req.file?.path) return res.status(400).json({ success: false, error: 'Upload your transfer receipt.' });
+    if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(req.file.mimetype) || Number(req.file.size) > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: 'Receipt must be a JPG, PNG, WEBP or PDF file not exceeding 5 MB.' });
+    }
     const balance = await getStudentFeeBalance(studentId, sessionId);
     if (!balance) return res.status(404).json({ success: false, error: 'Student record not found.' });
     if (amount > balance.balance) return res.status(400).json({ success: false, error: 'The amount cannot exceed your outstanding balance.' });
@@ -1326,7 +1329,7 @@ router.post('/payments/paystack/initialize', only, async (req, res) => {
           email: student.email,
           amount: Math.round(amount * 100),
           reference,
-          callback_url: process.env.PAYSTACK_CALLBACK_URL || (origin ? origin + '/portal/app.html' : undefined),
+          callback_url: process.env.PAYSTACK_CALLBACK_URL || (origin ? origin + '/portal/payment-return.html' : undefined),
           metadata: { studentId, sessionId, purpose: 'Federal Polytechnic Ugep student fees' },
         }),
       });

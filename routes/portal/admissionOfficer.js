@@ -32,8 +32,27 @@ const { getYearShort } = require('../../config/departments');
 const courseQueries = require('../../db/queries/courses');
 const { db, schema } = require('../../db');
 const { users } = schema;
+const { getUniqueSignedSignatory } = require('../../utils/signatories');
 
 const only = requireRole('admission_officer', 'admin', 'registrar');
+
+async function sendAcceptanceLetterEmail(app) {
+  const signatory = await getUniqueSignedSignatory('bursar');
+  if (!signatory.ok) return { ok: false, error: signatory.error, signatoryRequired: true };
+  const baseUrl = process.env.PUBLIC_URL || 'https://fpu-school-systems.onrender.com';
+  const letterUrl = `${baseUrl}/api/letters/${app.id}?type=acceptance`;
+  return sendMail({
+    to: app.email,
+    subject: `Acceptance Acknowledged — ${app.applicationNumber}`,
+    html: baseTemplate('Acceptance Confirmation', `
+      <p>Dear <strong>${app.firstName || ''} ${app.lastName || ''}</strong>,</p>
+      <p>Your acceptance of the offer of admission has been received and recorded.</p>
+      <p>Please complete your registration at the Admissions Office.</p>
+      <p style="text-align:center;margin:28px 0;"><a href="${letterUrl}" style="display:inline-block;background:#065f46;color:#fff;padding:13px 22px;border-radius:6px;text-decoration:none;font-weight:bold;">View &amp; Print Signed Acceptance Letter</a></p>
+      <p>Warm regards,<br/><strong>Admissions Office</strong></p>
+    `),
+  });
+}
 
 // GET /signatories/:role — return the saved signature for the designated letter signer.
 router.get('/signatories/:role', only, async (req, res, next) => {
@@ -111,16 +130,7 @@ router.post('/applications/:id/email', only, async (req, res, next) => {
 
     let r;
     if (type === 'provisional')       r = await sendApplicationApproved(app);
-    else if (type === 'acceptance')   r = await sendMail({
-      to: app.email,
-      subject: `Acceptance Acknowledged — ${app.applicationNumber}`,
-      html: baseTemplate('Acceptance Confirmation', `
-        <p>Dear <strong>${app.firstName} ${app.lastName}</strong>,</p>
-        <p>Your acceptance of the offer of admission has been received and recorded.</p>
-        <p>Please complete your registration at the Admissions Office.</p>
-        <p>Warm regards,<br/><strong>Admissions Office</strong></p>
-      `),
-    });
+    else if (type === 'acceptance')   r = await sendAcceptanceLetterEmail(app);
     else if (type === 'matriculation') r = await sendMatriculationLetter(app);
     else if (type === 'rejection')     r = await sendRejectionLetter(app);
 
@@ -160,16 +170,7 @@ router.post('/bulk/email', only, async (req, res, next) => {
 
         let r;
         if (type === 'provisional')       r = await sendApplicationApproved(enriched);
-        else if (type === 'acceptance')   r = await sendMail({
-          to: enriched.email,
-          subject: `Acceptance Acknowledged — ${enriched.applicationNumber}`,
-          html: baseTemplate('Acceptance Confirmation', `
-            <p>Dear <strong>${enriched.firstName} ${enriched.lastName}</strong>,</p>
-            <p>Your acceptance of the offer of admission has been received and recorded.</p>
-            <p>Please complete your registration at the Admissions Office.</p>
-            <p>Warm regards,<br/><strong>Admissions Office</strong></p>
-          `),
-        });
+        else if (type === 'acceptance')   r = await sendAcceptanceLetterEmail(enriched);
         else if (type === 'matriculation') r = await sendMatriculationLetter(enriched);
         else if (type === 'rejection')     r = await sendRejectionLetter(enriched);
 

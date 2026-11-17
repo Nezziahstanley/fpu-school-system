@@ -190,7 +190,11 @@
     }
 
     const d = LAST_DATA;
-    const payments = d.payments || [];
+    const payments = (d.payments || []).filter((payment) => payment.status === 'verified');
+    if (!payments.length) {
+      core.showToast && core.showToast('There are no verified payments to print a receipt for yet.', 'warning');
+      return;
+    }
     const user = core.getPortalUser ? core.getPortalUser() : {};
     const studentName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Student';
     const matric = (user.matricNumber || '').replace(/SMT/gi, '').trim() || '—';

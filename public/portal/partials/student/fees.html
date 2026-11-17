@@ -12,6 +12,12 @@
     </div>
   </div>
 
+  <div id="fee-access-warning" role="status" style="display:none;background:#fff7ed;border:1px solid #fdba74;border-left:5px solid #ea580c;border-radius:10px;padding:1rem;margin-bottom:1rem;color:#7c2d12;">
+    <div style="font-weight:800;margin-bottom:.25rem;">Dashboard access is restricted</div>
+    <div style="font-size:.84rem;line-height:1.55;">Please pay all required fees for the current academic session. Your full student dashboard will unlock automatically after the Bursar verifies your bank transfer or Paystack confirms your payment. Pending transfers do not count as paid.</div>
+    <div id="fee-access-balance" style="font-weight:800;margin-top:.45rem;"></div>
+  </div>
+
   <!-- ACTIONS -->
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
     <button id="pay-online-shortcut" type="button" style="padding:.65rem 1rem;font-size:.84rem;font-weight:800;background:#065f46;color:#fff;border:0;border-radius:8px;cursor:pointer;">💳 Pay Online Now</button>
@@ -139,6 +145,15 @@
       const d = res.data || {};
       LAST_DATA = d;
       const payments = d.payments || [];
+
+      const accessWarning = $('fee-access-warning');
+      if (accessWarning) {
+        const outstanding = Number(d.balance || 0);
+        accessWarning.style.display = outstanding > 0.009 ? 'block' : 'none';
+        if ($('fee-access-balance')) $('fee-access-balance').textContent = outstanding > 0.009
+          ? 'Outstanding balance: ' + fmtMoney(outstanding)
+          : '';
+      }
 
       $('stat-due').textContent = fmtMoney(d.totalDue || 0);
       $('stat-paid').textContent = fmtMoney(d.totalPaid || 0);

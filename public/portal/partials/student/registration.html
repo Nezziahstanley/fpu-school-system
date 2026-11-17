@@ -244,10 +244,7 @@
     const grid = $('available-courses-grid');
     grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#94a3b8;">Loading courses…</div>';
     try {
-      const [dashboard, response] = await Promise.all([
-        core.portalFetch('/api/student/dashboard'),
-        core.portalFetch('/api/student/available-courses')
-      ]);
+      const dashboard = await core.portalFetch('/api/student/dashboard');
       STUDENT_LEVEL = String(dashboard.data?.student?.level || '').toUpperCase();
       const levelSelect = $('filter-level');
       if (STUDENT_LEVEL && ['ND','HND','CERT'].includes(STUDENT_LEVEL)) {
